@@ -1,0 +1,3468 @@
+#!/usr/bin/env python3
+"""
+Qwen Image Generator - Enhanced Edition
+Run this and open http://localhost:8080
+Access from other devices: http://<your-ip>:8080
+"""
+
+import json
+import urllib.request
+import urllib.parse
+import os
+import sys
+import time
+import threading
+import webbrowser
+import base64
+from http.server import HTTPServer, SimpleHTTPRequestHandler
+import subprocess
+
+COMFYUI_URL = "http://127.0.0.1:8188"
+OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "output")
+FAVORITES_FILE = os.path.join(os.path.dirname(__file__), "favorites.json")
+HISTORY_FILE = os.path.join(os.path.dirname(__file__), "prompt_history.json")
+
+# Store last used seed for regeneration
+last_seeds = {}
+
+# Prompt history (in-memory, synced to file)
+prompt_history = []
+
+# Quick presets
+PRESETS = {
+    'quick': {'mode': 'lightning', 'resolution': 512, 'aspect': 'square', 'name': 'Quick Preview'},
+    'portrait': {'mode': 'lightning', 'resolution': 768, 'aspect': 'portrait', 'name': 'Portrait'},
+    'landscape': {'mode': 'lightning', 'resolution': 768, 'aspect': 'landscape', 'name': 'Landscape'},
+    'wallpaper': {'mode': 'lightning', 'resolution': 1024, 'aspect': 'landscape', 'name': 'Wallpaper'},
+    'quality': {'mode': 'normal', 'resolution': 768, 'aspect': 'square', 'name': 'High Quality'},
+    'hd_quality': {'mode': 'normal', 'resolution': 1024, 'aspect': 'square', 'name': 'HD Quality'},
+}
+
+# Sampler options for advanced users
+SAMPLERS = ['euler', 'euler_ancestral', 'heun', 'dpm_2', 'dpm_2_ancestral', 'lms', 'dpm_fast', 'dpm_adaptive', 'dpmpp_2s_ancestral', 'dpmpp_sde', 'dpmpp_2m']
+SCHEDULERS = ['normal', 'karras', 'exponential', 'sgm_uniform', 'simple', 'ddim_uniform']
+
+# Workflow templates
+def get_workflow(mode='lightning', resolution=512, aspect='square', seed=None, negative_prompt='', sampler='euler', scheduler='normal'):
+    """Generate workflow based on settings"""
+
+    # Calculate dimensions based on aspect ratio
+    if aspect == 'landscape':
+        width = resolution
+        height = int(resolution * 0.66)
+    elif aspect == 'portrait':
+        width = int(resolution * 0.66)
+        height = resolution
+    else:  # square
+        width = resolution
+        height = resolution
+
+    # Use provided seed or generate random one
+    if seed is None:
+        seed = int(time.time() * 1000) % 999999999
+
+    steps = 4 if mode == 'lightning' else 30
+    cfg = 1.0 if mode == 'lightning' else 5.0
+
+    workflow = {
+        "3": {
+            "class_type": "CLIPLoaderGGUF",
+            "inputs": {
+                "clip_name": "Qwen2.5-VL-7B-Instruct-abliterated.Q6_K.gguf",
+                "type": "qwen_image"
+            }
+        },
+        "4": {
+            "class_type": "CLIPTextEncode",
+            "inputs": {
+                "text": "PROMPT_PLACEHOLDER",
+                "clip": ["3", 0]
+            }
+        },
+        "5": {
+            "class_type": "UnetLoaderGGUF",
+            "inputs": {
+                "unet_name": "qwen-image-Q6_K.gguf"
+            }
+        },
+        "6": {
+            "class_type": "VAELoader",
+            "inputs": {
+                "vae_name": "qwen_image_vae.safetensors"
+            }
+        },
+        "7": {
+            "class_type": "EmptyLatentImage",
+            "inputs": {
+                "width": width,
+                "height": height,
+                "batch_size": 1
+            }
+        },
+        "9": {
+            "class_type": "CLIPTextEncode",
+            "inputs": {
+                "text": negative_prompt,
+                "clip": ["3", 0]
+            }
+        },
+        "10": {
+            "class_type": "VAEDecode",
+            "inputs": {
+                "samples": ["8", 0],
+                "vae": ["6", 0]
+            }
+        },
+        "11": {
+            "class_type": "SaveImage",
+            "inputs": {
+                "filename_prefix": "qwen_" + mode,
+                "images": ["10", 0]
+            }
+        }
+    }
+
+    # Add LoRA for lightning mode
+    if mode == 'lightning':
+        workflow["12"] = {
+            "class_type": "LoraLoader",
+            "inputs": {
+                "lora_name": "Qwen-Image-Lightning-4steps-V1.0.safetensors",
+                "strength_model": 1.0,
+                "strength_clip": 1.0,
+                "model": ["5", 0],
+                "clip": ["3", 0]
+            }
+        }
+        workflow["8"] = {
+            "class_type": "KSampler",
+            "inputs": {
+                "seed": seed,
+                "steps": steps,
+                "cfg": cfg,
+                "sampler_name": sampler,
+                "scheduler": scheduler,
+                "denoise": 1.0,
+                "model": ["12", 0],
+                "positive": ["4", 0],
+                "negative": ["9", 0],
+                "latent_image": ["7", 0]
+            }
+        }
+    else:
+        workflow["8"] = {
+            "class_type": "KSampler",
+            "inputs": {
+                "seed": seed,
+                "steps": steps,
+                "cfg": cfg,
+                "sampler_name": sampler,
+                "scheduler": scheduler,
+                "denoise": 1.0,
+                "model": ["5", 0],
+                "positive": ["4", 0],
+                "negative": ["9", 0],
+                "latent_image": ["7", 0]
+            }
+        }
+
+    return workflow, seed
+
+HTML_PAGE = '''<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Qwen Image Generator</title>
+    <style>
+        /* ============================================
+           DESIGN SYSTEM: Apple Glassmorphism - Refined
+           - Consistent 8px base spacing grid
+           - Unified font sizing scale
+           - Smooth animations on ALL interactive elements
+           - Frosted glass with proper depth
+           ============================================ */
+
+        :root {
+            /* Spacing - Consistent 8px grid */
+            --space-1: 4px;
+            --space-2: 8px;
+            --space-3: 12px;
+            --space-4: 16px;
+            --space-5: 20px;
+            --space-6: 24px;
+            --space-8: 32px;
+
+            /* Glass Colors */
+            --glass-bg: rgba(255, 255, 255, 0.07);
+            --glass-bg-hover: rgba(255, 255, 255, 0.12);
+            --glass-border: rgba(255, 255, 255, 0.12);
+            --glass-border-hover: rgba(255, 255, 255, 0.2);
+
+            /* Text - 4-level hierarchy */
+            --text-primary: rgba(255, 255, 255, 0.95);
+            --text-secondary: rgba(255, 255, 255, 0.7);
+            --text-tertiary: rgba(255, 255, 255, 0.5);
+            --text-quaternary: rgba(255, 255, 255, 0.3);
+
+            /* Accent - Apple Blue */
+            --accent: #0A84FF;
+            --accent-hover: #409CFF;
+            --accent-glow: rgba(10, 132, 255, 0.35);
+            --accent-bg: rgba(10, 132, 255, 0.12);
+
+            /* Semantic */
+            --success: #30D158;
+            --success-bg: rgba(48, 209, 88, 0.12);
+            --warning: #FFD60A;
+            --error: #FF453A;
+            --error-bg: rgba(255, 69, 58, 0.12);
+
+            /* Typography - Consistent scale */
+            --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
+            --font-mono: "SF Mono", "Fira Code", ui-monospace, monospace;
+            --text-xs: 11px;
+            --text-sm: 13px;
+            --text-base: 14px;
+            --text-lg: 16px;
+            --text-xl: 20px;
+            --text-2xl: 28px;
+
+            /* Radius - Apple's signature */
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 20px;
+            --radius-full: 9999px;
+
+            /* Animation - Unified timing */
+            --ease-out: cubic-bezier(0.25, 1, 0.5, 1);
+            --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+            --duration-fast: 150ms;
+            --duration-base: 200ms;
+            --duration-slow: 300ms;
+        }
+
+        /* Reset with smooth defaults */
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Smooth scrolling */
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            font-size: var(--text-base);
+            line-height: 1.5;
+            color: var(--text-primary);
+            max-width: 900px;
+            margin: 0 auto;
+            padding: var(--space-6);
+            background: linear-gradient(145deg, #1a1a2e 0%, #0d0d1a 50%, #1a0a2e 100%);
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Ambient background glow */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(ellipse at 30% 20%, rgba(99, 102, 241, 0.12) 0%, transparent 50%),
+                        radial-gradient(ellipse at 70% 80%, rgba(168, 85, 247, 0.08) 0%, transparent 50%),
+                        radial-gradient(ellipse at 50% 50%, rgba(10, 132, 255, 0.04) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        /* Page load animation */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(16px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        body {
+            animation: fadeIn 0.4s var(--ease-out);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: var(--space-1);
+            font-size: var(--text-2xl);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.8) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: fadeInUp 0.4s var(--ease-out) 0.1s both;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: var(--text-tertiary);
+            margin-bottom: var(--space-6);
+            font-size: var(--text-base);
+            font-weight: 400;
+            animation: fadeInUp 0.4s var(--ease-out) 0.15s both;
+        }
+
+        /* Glass Card Base */
+        .glass {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+        }
+
+        /* Tabs - Pill style like iOS */
+        .tabs {
+            display: flex;
+            margin-bottom: var(--space-6);
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-xl);
+            padding: var(--space-1);
+            gap: var(--space-1);
+            animation: fadeInUp 0.4s var(--ease-out) 0.2s both;
+        }
+
+        .tab {
+            flex: 1;
+            padding: var(--space-2) var(--space-4);
+            text-align: center;
+            background: transparent;
+            cursor: pointer;
+            border: none;
+            color: var(--text-tertiary);
+            font-size: var(--text-base);
+            font-weight: 500;
+            border-radius: var(--radius-lg);
+            transition: all var(--duration-base) var(--ease-out);
+        }
+
+        .tab:hover {
+            color: var(--text-secondary);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .tab.active {
+            background: rgba(255, 255, 255, 0.15);
+            color: var(--text-primary);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .tab-content { display: none; }
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.25s var(--ease-out);
+        }
+
+        /* Input sections - Glass Card */
+        .input-section {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-xl);
+            padding: var(--space-6);
+            margin-bottom: var(--space-4);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+            animation: fadeInUp 0.4s var(--ease-out) 0.25s both;
+        }
+
+        label {
+            display: block;
+            margin-bottom: var(--space-2);
+            font-weight: 500;
+            font-size: var(--text-sm);
+            color: var(--text-secondary);
+            letter-spacing: 0.01em;
+        }
+
+        textarea, input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: var(--space-3) var(--space-4);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            font-size: var(--text-base);
+            font-family: var(--font-sans);
+            background: rgba(0, 0, 0, 0.2);
+            color: var(--text-primary);
+            margin-bottom: var(--space-3);
+            transition: all var(--duration-base) var(--ease-out);
+        }
+
+        textarea { height: 110px; resize: vertical; }
+
+        textarea:focus, input:focus, select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+            background: rgba(0, 0, 0, 0.25);
+        }
+
+        textarea::placeholder, input::placeholder {
+            color: var(--text-quaternary);
+        }
+
+        /* Options */
+        .options-row {
+            display: flex;
+            gap: var(--space-3);
+            margin-bottom: var(--space-3);
+            flex-wrap: wrap;
+        }
+        .option-group { flex: 1; min-width: 130px; }
+
+        select {
+            width: 100%;
+            padding: var(--space-2) var(--space-3);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            font-size: var(--text-base);
+            font-family: var(--font-sans);
+            background: rgba(0, 0, 0, 0.2);
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all var(--duration-base) var(--ease-out);
+            -webkit-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='rgba(255,255,255,0.5)' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 36px;
+        }
+
+        select:hover { border-color: var(--glass-border-hover); }
+        select:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .time-estimate {
+            font-size: var(--text-sm);
+            color: var(--accent);
+            margin-bottom: var(--space-3);
+            font-weight: 500;
+        }
+
+        /* Buttons - Apple style with glow */
+        button {
+            padding: var(--space-2) var(--space-5);
+            font-size: var(--text-base);
+            font-weight: 600;
+            font-family: var(--font-sans);
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: all var(--duration-base) var(--ease-out);
+            box-shadow: 0 2px 8px var(--accent-glow);
+            position: relative;
+            overflow: hidden;
+        }
+
+        button:hover:not(:disabled) {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px var(--accent-glow);
+        }
+
+        button:active:not(:disabled) {
+            transform: scale(0.98) translateY(0);
+            transition: transform 0.1s var(--ease-out);
+        }
+
+        button:disabled {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-quaternary);
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        .btn-row { display: flex; gap: var(--space-2); }
+        .btn-row button { flex: 1; }
+
+        .btn-secondary {
+            background: var(--glass-bg);
+            color: var(--text-secondary);
+            border: 1px solid var(--glass-border);
+            box-shadow: none;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: var(--glass-bg-hover);
+            color: var(--text-primary);
+            border-color: var(--glass-border-hover);
+            box-shadow: none;
+            transform: none;
+        }
+
+        .btn-green {
+            background: var(--success);
+            box-shadow: 0 2px 8px rgba(48, 209, 88, 0.35);
+        }
+
+        .btn-green:hover:not(:disabled) {
+            background: #3adb62;
+            box-shadow: 0 4px 16px rgba(48, 209, 88, 0.35);
+        }
+
+        /* Status */
+        #status {
+            text-align: center;
+            padding: var(--space-3) var(--space-4);
+            margin: var(--space-3) 0;
+            border-radius: var(--radius-md);
+            display: none;
+            font-size: var(--text-base);
+            font-weight: 500;
+            backdrop-filter: blur(10px);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .generating {
+            background: var(--accent-bg);
+            border: 1px solid rgba(10, 132, 255, 0.25);
+            animation: pulse 1.5s ease-in-out infinite;
+            color: var(--accent);
+        }
+
+        .success {
+            background: var(--success-bg);
+            border: 1px solid rgba(48, 209, 88, 0.25);
+            color: var(--success);
+        }
+
+        .error {
+            background: var(--error-bg);
+            border: 1px solid rgba(255, 69, 58, 0.25);
+            color: var(--error);
+        }
+
+        /* Progress */
+        .progress-container { margin-top: var(--space-2); }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: var(--radius-full);
+            overflow: hidden;
+        }
+
+        @keyframes progressGlow {
+            0%, 100% { box-shadow: 0 0 8px var(--accent-glow); }
+            50% { box-shadow: 0 0 16px var(--accent-glow), 0 0 24px var(--accent-glow); }
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), #A855F7);
+            border-radius: var(--radius-full);
+            transition: width var(--duration-slow) var(--ease-out);
+            animation: progressGlow 2s ease-in-out infinite;
+        }
+
+        .progress-text {
+            display: flex;
+            justify-content: space-between;
+            margin-top: var(--space-1);
+            font-size: var(--text-xs);
+            color: var(--text-tertiary);
+            font-family: var(--font-mono);
+        }
+
+        /* Result */
+        @keyframes resultImageIn {
+            from { opacity: 0; transform: scale(0.96) translateY(12px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        #result {
+            text-align: center;
+            margin: var(--space-6) 0;
+        }
+
+        #result img {
+            max-width: 100%;
+            border-radius: var(--radius-xl);
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35),
+                        0 0 32px rgba(99, 102, 241, 0.08);
+            animation: resultImageIn 0.4s var(--ease-spring);
+        }
+
+        .result-actions {
+            margin-top: var(--space-4);
+            display: flex;
+            gap: var(--space-2);
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .result-info {
+            margin-top: var(--space-2);
+            font-size: var(--text-sm);
+            color: var(--text-tertiary);
+        }
+
+        .seed-display {
+            font-family: var(--font-mono);
+            background: var(--glass-bg);
+            padding: var(--space-1) var(--space-2);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: var(--text-xs);
+            border: 1px solid var(--glass-border);
+            transition: all var(--duration-base) var(--ease-out);
+        }
+
+        .seed-display:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        /* Gallery - ALL items get animations */
+        @keyframes galleryItemIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: var(--space-3);
+            margin-top: var(--space-4);
+        }
+
+        .gallery-item {
+            position: relative;
+            aspect-ratio: 1;
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            cursor: pointer;
+            border: 1px solid var(--glass-border);
+            background: var(--glass-bg);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            /* Animation for ALL gallery items via CSS */
+            animation: galleryItemIn 0.35s var(--ease-out) both;
+            transition: transform var(--duration-slow) var(--ease-spring),
+                        box-shadow var(--duration-slow) var(--ease-out),
+                        border-color var(--duration-base) var(--ease-out);
+        }
+
+        /* Stagger animation for first 20 items */
+        .gallery-item:nth-child(1) { animation-delay: 0.02s; }
+        .gallery-item:nth-child(2) { animation-delay: 0.04s; }
+        .gallery-item:nth-child(3) { animation-delay: 0.06s; }
+        .gallery-item:nth-child(4) { animation-delay: 0.08s; }
+        .gallery-item:nth-child(5) { animation-delay: 0.1s; }
+        .gallery-item:nth-child(6) { animation-delay: 0.12s; }
+        .gallery-item:nth-child(7) { animation-delay: 0.14s; }
+        .gallery-item:nth-child(8) { animation-delay: 0.16s; }
+        .gallery-item:nth-child(9) { animation-delay: 0.18s; }
+        .gallery-item:nth-child(10) { animation-delay: 0.2s; }
+        .gallery-item:nth-child(11) { animation-delay: 0.22s; }
+        .gallery-item:nth-child(12) { animation-delay: 0.24s; }
+        .gallery-item:nth-child(13) { animation-delay: 0.26s; }
+        .gallery-item:nth-child(14) { animation-delay: 0.28s; }
+        .gallery-item:nth-child(15) { animation-delay: 0.3s; }
+        .gallery-item:nth-child(16) { animation-delay: 0.32s; }
+        .gallery-item:nth-child(17) { animation-delay: 0.34s; }
+        .gallery-item:nth-child(18) { animation-delay: 0.36s; }
+        .gallery-item:nth-child(19) { animation-delay: 0.38s; }
+        .gallery-item:nth-child(20) { animation-delay: 0.4s; }
+        .gallery-item:nth-child(n+21) { animation-delay: 0.42s; }
+
+        .gallery-item:hover {
+            transform: scale(1.04) translateY(-2px);
+            border-color: var(--accent);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25),
+                        0 0 20px var(--accent-glow);
+        }
+
+        .gallery-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform var(--duration-slow) var(--ease-out);
+        }
+
+        .gallery-item:hover img {
+            transform: scale(1.02);
+        }
+
+        .gallery-item .gallery-actions {
+            position: absolute;
+            top: var(--space-2);
+            right: var(--space-2);
+            display: flex;
+            gap: var(--space-1);
+            opacity: 0;
+            transition: opacity var(--duration-base) var(--ease-out);
+        }
+
+        .gallery-item:hover .gallery-actions {
+            opacity: 1;
+        }
+
+        .gallery-item .favorite-star, .gallery-item .delete-btn {
+            font-size: var(--text-sm);
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px);
+            padding: 6px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all var(--duration-base) var(--ease-spring);
+        }
+
+        .gallery-item .favorite-star:hover, .gallery-item .delete-btn:hover {
+            transform: scale(1.15);
+            background: rgba(0, 0, 0, 0.8);
+        }
+
+        .gallery-item .delete-btn {
+            opacity: 0;
+            transition: opacity var(--duration-base);
+        }
+        .gallery-item:hover .delete-btn { opacity: 1; }
+
+        .gallery-item .gallery-type-badge {
+            position: absolute;
+            bottom: var(--space-2);
+            left: var(--space-2);
+            background: rgba(0, 0, 0, 0.65);
+            backdrop-filter: blur(8px);
+            padding: var(--space-1) var(--space-2);
+            border-radius: var(--radius-sm);
+            font-size: var(--text-xs);
+            font-weight: 500;
+            transition: transform var(--duration-base) var(--ease-out);
+        }
+
+        .gallery-item:hover .gallery-type-badge {
+            transform: translateY(-2px);
+        }
+
+        /* Modal */
+        @keyframes modalIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes modalImageIn {
+            from { opacity: 0; transform: scale(0.92); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(20px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active {
+            display: flex;
+            animation: modalIn 0.25s var(--ease-out);
+        }
+
+        .modal img {
+            max-width: 90%;
+            max-height: 90%;
+            border-radius: var(--radius-xl);
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+            animation: modalImageIn 0.35s var(--ease-spring);
+        }
+
+        .modal-close {
+            position: absolute;
+            top: var(--space-6);
+            right: var(--space-8);
+            font-size: 24px;
+            color: var(--text-tertiary);
+            cursor: pointer;
+            transition: all var(--duration-base) var(--ease-out);
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: var(--radius-full);
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+        }
+
+        .modal-close:hover {
+            color: var(--text-primary);
+            background: var(--glass-bg-hover);
+            transform: scale(1.05);
+        }
+
+        /* Examples */
+        .examples {
+            margin-top: var(--space-4);
+            padding: var(--space-4);
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+            animation: fadeInUp 0.4s var(--ease-out) 0.3s both;
+        }
+
+        .examples h3 {
+            margin: 0 0 var(--space-2) 0;
+            font-size: var(--text-xs);
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-weight: 600;
+        }
+
+        .example-btn {
+            display: inline-block;
+            padding: var(--space-1) var(--space-3);
+            margin: var(--space-1);
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-full);
+            cursor: pointer;
+            font-size: var(--text-sm);
+            color: var(--text-secondary);
+            transition: all var(--duration-base) var(--ease-spring);
+        }
+
+        .example-btn:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: var(--glass-border-hover);
+            color: var(--text-primary);
+            transform: translateY(-2px);
+        }
+
+        .example-btn:active {
+            transform: scale(0.97) translateY(0);
+        }
+
+        /* Advanced toggle */
+        .advanced-toggle {
+            color: var(--text-tertiary);
+            cursor: pointer;
+            font-size: var(--text-sm);
+            margin-bottom: var(--space-2);
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-1);
+            transition: color var(--duration-base);
+        }
+
+        .advanced-toggle:hover { color: var(--text-secondary); }
+        .advanced-section { display: none; }
+        .advanced-section.show {
+            display: block;
+            animation: fadeIn 0.2s var(--ease-out);
+        }
+
+        /* Option hints - subtle helper text */
+        .option-hint {
+            display: block;
+            font-size: var(--text-xs);
+            color: var(--text-quaternary);
+            margin-bottom: var(--space-2);
+            line-height: 1.4;
+            font-weight: 400;
+        }
+
+        /* Upload area */
+        .upload-area {
+            border: 2px dashed var(--glass-border);
+            border-radius: var(--radius-lg);
+            padding: var(--space-8);
+            text-align: center;
+            cursor: pointer;
+            transition: all var(--duration-slow) var(--ease-spring);
+            margin-bottom: var(--space-3);
+            color: var(--text-tertiary);
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .upload-area:hover {
+            border-color: var(--accent);
+            color: var(--text-secondary);
+            background: var(--accent-bg);
+            transform: translateY(-2px);
+        }
+
+        .upload-area.dragover {
+            border-color: var(--accent);
+            background: var(--accent-bg);
+            box-shadow: 0 0 24px var(--accent-glow);
+            transform: scale(1.01);
+        }
+
+        .upload-preview {
+            max-width: 200px;
+            max-height: 200px;
+            margin-top: var(--space-2);
+            border-radius: var(--radius-lg);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+        }
+
+        /* Filter tabs */
+        .filter-tabs {
+            display: flex;
+            gap: var(--space-2);
+            margin-bottom: var(--space-3);
+            flex-wrap: wrap;
+        }
+
+        .filter-tab {
+            padding: var(--space-1) var(--space-3);
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-full);
+            cursor: pointer;
+            font-size: var(--text-sm);
+            color: var(--text-secondary);
+            transition: all var(--duration-base) var(--ease-spring);
+        }
+
+        .filter-tab:hover {
+            background: var(--glass-bg-hover);
+            color: var(--text-primary);
+            transform: translateY(-1px);
+        }
+
+        .filter-tab:active {
+            transform: scale(0.97);
+        }
+
+        .filter-tab.active {
+            background: var(--accent-bg);
+            border-color: rgba(10, 132, 255, 0.25);
+            color: var(--accent);
+        }
+
+        /* Presets - Pill buttons */
+        .presets {
+            display: flex;
+            gap: var(--space-2);
+            margin-bottom: var(--space-3);
+            flex-wrap: wrap;
+        }
+
+        .preset-btn {
+            padding: var(--space-2) var(--space-4);
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-full);
+            cursor: pointer;
+            font-size: var(--text-sm);
+            color: var(--text-secondary);
+            transition: all var(--duration-base) var(--ease-spring);
+            white-space: nowrap;
+        }
+
+        .preset-btn:hover {
+            background: var(--glass-bg-hover);
+            border-color: var(--glass-border-hover);
+            color: var(--text-primary);
+            transform: translateY(-2px);
+        }
+
+        .preset-btn:active {
+            transform: scale(0.97) translateY(0);
+        }
+
+        .preset-btn.active {
+            background: var(--accent-bg);
+            border-color: rgba(10, 132, 255, 0.25);
+            color: var(--accent);
+            box-shadow: 0 0 12px var(--accent-glow);
+        }
+
+        /* History dropdown */
+        @keyframes dropdownOpen {
+            from { opacity: 0; transform: scaleY(0.95) translateY(-8px); }
+            to { opacity: 1; transform: scaleY(1) translateY(0); }
+        }
+
+        .history-container { position: relative; margin-bottom: var(--space-3); }
+
+        .history-btn {
+            padding: var(--space-2) var(--space-3);
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            font-size: var(--text-sm);
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-1);
+            color: var(--text-secondary);
+            transition: all var(--duration-base) var(--ease-out);
+        }
+
+        .history-btn:hover {
+            background: var(--glass-bg-hover);
+            color: var(--text-primary);
+        }
+
+        .history-dropdown {
+            position: absolute;
+            top: calc(100% + var(--space-1));
+            left: 0; right: 0;
+            background: rgba(25, 25, 40, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+            max-height: 220px;
+            overflow-y: auto;
+            display: none;
+            z-index: 100;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+        }
+
+        .history-dropdown.show {
+            display: block;
+            animation: dropdownOpen 0.2s var(--ease-spring);
+        }
+
+        .history-item {
+            padding: var(--space-3) var(--space-4);
+            cursor: pointer;
+            border-bottom: 1px solid var(--glass-border);
+            font-size: var(--text-base);
+            color: var(--text-secondary);
+            transition: all var(--duration-base);
+        }
+
+        .history-item:hover {
+            background: var(--glass-bg-hover);
+            color: var(--text-primary);
+        }
+
+        .history-item:last-child { border-bottom: none; }
+
+        .history-meta {
+            font-size: var(--text-xs);
+            color: var(--text-quaternary);
+            margin-top: var(--space-1);
+            font-family: var(--font-mono);
+        }
+
+        /* Batch options */
+        .batch-row {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            margin-bottom: var(--space-3);
+        }
+
+        .batch-label { font-size: var(--text-sm); color: var(--text-tertiary); }
+
+        .batch-input {
+            width: 60px;
+            text-align: center;
+            font-family: var(--font-mono);
+        }
+
+        /* Generation Queue */
+        .queue-container {
+            margin-top: var(--space-3);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            display: none;
+        }
+        .queue-container.active { display: block; }
+        .queue-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: var(--space-2) var(--space-3);
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border);
+        }
+        .queue-title {
+            font-size: var(--text-sm);
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+        .queue-count {
+            font-size: var(--text-xs);
+            font-family: var(--font-mono);
+            color: var(--accent);
+            background: var(--accent-bg);
+            padding: 2px 8px;
+            border-radius: var(--radius-full);
+        }
+        .queue-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .queue-item {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-2) var(--space-3);
+            border-bottom: 1px solid var(--border);
+            font-size: var(--text-sm);
+        }
+        .queue-item:last-child { border-bottom: none; }
+        .queue-item.processing {
+            background: var(--accent-bg);
+        }
+        .queue-item-status {
+            width: 20px;
+            text-align: center;
+        }
+        .queue-item-prompt {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: var(--text-secondary);
+        }
+        .queue-item-settings {
+            font-size: var(--text-xs);
+            font-family: var(--font-mono);
+            color: var(--text-quaternary);
+        }
+        .queue-item-remove {
+            cursor: pointer;
+            color: var(--text-quaternary);
+            transition: color var(--duration-fast);
+        }
+        .queue-item-remove:hover { color: var(--error); }
+        .queue-actions {
+            display: flex;
+            gap: var(--space-2);
+            padding: var(--space-2) var(--space-3);
+            border-top: 1px solid var(--border);
+            background: var(--bg-tertiary);
+        }
+        .queue-btn {
+            flex: 1;
+            padding: var(--space-1) var(--space-2);
+            font-size: var(--text-xs);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            border: none;
+            transition: all var(--duration-fast);
+        }
+        .queue-btn-start {
+            background: var(--accent);
+            color: white;
+        }
+        .queue-btn-start:hover { background: var(--accent-hover); }
+        .queue-btn-start:disabled {
+            background: var(--bg-tertiary);
+            color: var(--text-quaternary);
+            cursor: not-allowed;
+        }
+        .queue-btn-clear {
+            background: var(--bg-secondary);
+            color: var(--text-tertiary);
+            border: 1px solid var(--border);
+        }
+        .queue-btn-clear:hover {
+            background: var(--error);
+            color: white;
+            border-color: var(--error);
+        }
+
+        /* Split Compare Mode (Generate Tab) */
+        .split-compare-container {
+            display: none;
+            margin-bottom: var(--space-4);
+            padding: var(--space-4);
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-xl);
+            animation: fadeInUp 0.3s var(--ease-out);
+        }
+
+        .split-compare-header {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            margin-bottom: var(--space-4);
+            padding-bottom: var(--space-3);
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .split-compare-title {
+            font-size: var(--text-lg);
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .split-compare-hint {
+            font-size: var(--text-sm);
+            color: var(--text-tertiary);
+            flex: 1;
+        }
+
+        .split-compare-panels {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: var(--space-3);
+        }
+
+        .split-panel {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-3);
+        }
+
+        .split-panel-header {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+        }
+
+        .split-panel-label {
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--accent);
+            color: white;
+            font-weight: 700;
+            font-size: var(--text-sm);
+            border-radius: var(--radius-sm);
+        }
+
+        .split-panel-title {
+            font-size: var(--text-sm);
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .split-prompt {
+            height: 80px;
+            resize: none;
+        }
+
+        .split-generate-btn {
+            width: 100%;
+        }
+
+        .split-result {
+            aspect-ratio: 1;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .split-result img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            animation: resultImageIn 0.4s var(--ease-spring);
+        }
+
+        .split-placeholder {
+            color: var(--text-quaternary);
+            font-size: var(--text-sm);
+        }
+
+        .split-divider {
+            width: 1px;
+            background: var(--glass-border);
+            margin: 0 var(--space-2);
+        }
+
+        /* Compare Mode Container (Gallery) */
+        .compare-mode-container {
+            display: none;
+            margin-bottom: var(--space-4);
+            padding: var(--space-4);
+            background: var(--accent-bg);
+            border: 1px solid rgba(10, 132, 255, 0.25);
+            border-radius: var(--radius-lg);
+        }
+
+        .compare-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--space-3);
+        }
+
+        .compare-title {
+            font-size: var(--text-sm);
+            color: var(--text-secondary);
+        }
+
+        .compare-exit-btn {
+            padding: var(--space-1) var(--space-3) !important;
+            background: var(--error) !important;
+            font-size: var(--text-sm) !important;
+            box-shadow: none !important;
+        }
+
+        .compare-exit-btn:hover {
+            background: #ff5a50 !important;
+        }
+
+        .compare-slots {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--space-3);
+        }
+
+        .compare-slot {
+            aspect-ratio: 1;
+            border: 2px dashed var(--glass-border);
+            border-radius: var(--radius-lg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-quaternary);
+            font-size: var(--text-sm);
+            overflow: hidden;
+            background: rgba(0, 0, 0, 0.15);
+            transition: all var(--duration-base) var(--ease-out);
+        }
+
+        .compare-slot.filled {
+            border-style: solid;
+            border-color: var(--accent);
+        }
+
+        .compare-slot img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: calc(var(--radius-lg) - 2px);
+        }
+
+        .compare-slot .compare-label {
+            position: absolute;
+            bottom: var(--space-2);
+            left: var(--space-2);
+            right: var(--space-2);
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+            padding: var(--space-1) var(--space-2);
+            border-radius: var(--radius-sm);
+            font-size: var(--text-xs);
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Comparison view (result page) */
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--space-4);
+            margin-top: var(--space-4);
+        }
+
+        .comparison-col { text-align: center; }
+
+        .comparison-col img {
+            max-width: 100%;
+            border-radius: var(--radius-lg);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+            transition: transform var(--duration-base) var(--ease-out);
+        }
+
+        .comparison-col img:hover {
+            transform: scale(1.02);
+        }
+
+        .comparison-label {
+            margin-bottom: var(--space-2);
+            font-size: var(--text-xs);
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-weight: 500;
+        }
+
+        /* Refiner buttons */
+        .refine-btn {
+            font-size: var(--text-sm) !important;
+            padding: var(--space-2) var(--space-3) !important;
+        }
+
+        /* Scrollbar styling - Thin Apple style */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: var(--radius-full);
+            transition: background var(--duration-base);
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        /* Selection */
+        ::selection {
+            background: var(--accent);
+            color: white;
+        }
+
+        /* Focus ring animation */
+        *:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 3px var(--accent-glow);
+            transition: box-shadow var(--duration-base) var(--ease-out);
+        }
+    </style>
+</head>
+<body>
+    <h1>🎨 Qwen Image Generator</h1>
+    <p class="subtitle">Powered by Qwen-Image-2512 on your Mac</p>
+
+    <div class="tabs">
+        <button class="tab active" onclick="showTab('generate')">✨ Generate</button>
+        <button class="tab" onclick="showTab('edit')">🖌️ Edit</button>
+        <button class="tab" onclick="showTab('gallery')">🖼️ Gallery</button>
+        <button class="tab" onclick="showTab('settings')">⚙️ Settings</button>
+    </div>
+
+    <!-- Generate Tab -->
+    <div id="tab-generate" class="tab-content active">
+        <div class="input-section">
+            <!-- Quick Presets -->
+            <label>Quick Presets</label>
+            <div class="presets">
+                <span class="preset-btn active" onclick="applyPreset('quick')" data-preset="quick">🚀 Quick Preview</span>
+                <span class="preset-btn" onclick="applyPreset('portrait')" data-preset="portrait">👤 Portrait</span>
+                <span class="preset-btn" onclick="applyPreset('landscape')" data-preset="landscape">🏞️ Landscape</span>
+                <span class="preset-btn" onclick="applyPreset('wallpaper')" data-preset="wallpaper">🖥️ Wallpaper</span>
+                <span class="preset-btn" onclick="applyPreset('quality')" data-preset="quality">✨ High Quality</span>
+                <span class="preset-btn" onclick="applyPreset('hd_quality')" data-preset="hd_quality">🎬 HD Quality</span>
+            </div>
+
+            <label for="prompt">What do you want to create?</label>
+            <textarea id="prompt" placeholder="Describe your image... e.g., A majestic dragon flying over mountains at sunset"></textarea>
+
+            <!-- Prompt Refiner - Local AI -->
+            <div style="margin-top: 10px; margin-bottom: 5px;">
+                <label style="font-size: 0.85em; color: #888;">💻 Local AI</label>
+                <div style="display: flex; gap: 8px; margin-top: 5px;">
+                    <button type="button" onclick="refineLocal('refine')" class="btn-secondary refine-btn" style="flex: 1; padding: 6px 10px; font-size: 0.85em;">
+                        ✨ Refine
+                    </button>
+                    <button type="button" onclick="refineLocal('expand')" class="btn-secondary refine-btn" style="flex: 1; padding: 6px 10px; font-size: 0.85em;">
+                        📝 Expand
+                    </button>
+                    <button type="button" onclick="refineLocal('style')" class="btn-secondary refine-btn" style="flex: 1; padding: 6px 10px; font-size: 0.85em;">
+                        🎲 Style
+                    </button>
+                </div>
+            </div>
+            <!-- Prompt History -->
+            <div class="history-container">
+                <div class="history-btn" onclick="toggleHistory()">📜 Recent Prompts <span id="historyCount">(0)</span></div>
+                <div class="history-dropdown" id="historyDropdown"></div>
+            </div>
+
+            <div class="advanced-toggle" onclick="toggleAdvanced()">▶ Advanced Options</div>
+            <div class="advanced-section" id="advancedSection">
+                <div class="option-group" style="margin-bottom: var(--space-3);">
+                    <label for="negativePrompt">Negative Prompt</label>
+                    <span class="option-hint">Describe what you DON'T want in the image</span>
+                    <textarea id="negativePrompt" placeholder="e.g., blurry, ugly, distorted, low quality" style="height: 60px;"></textarea>
+                </div>
+
+                <div class="options-row">
+                    <div class="option-group">
+                        <label for="seedInput">Seed</label>
+                        <span class="option-hint">Same seed = same image. Leave empty for random.</span>
+                        <input type="number" id="seedInput" placeholder="Random">
+                    </div>
+                    <div class="option-group">
+                        <label for="sampler">Sampler</label>
+                        <span class="option-hint">Algorithm for generating. Euler is fastest.</span>
+                        <select id="sampler">
+                            <option value="euler" selected>euler (fast, default)</option>
+                            <option value="euler_ancestral">euler_ancestral (creative)</option>
+                            <option value="dpmpp_2m">dpmpp_2m (balanced)</option>
+                            <option value="dpmpp_sde">dpmpp_sde (detailed)</option>
+                            <option value="heun">heun (accurate, slow)</option>
+                        </select>
+                    </div>
+                    <div class="option-group">
+                        <label for="scheduler">Scheduler</label>
+                        <span class="option-hint">Controls noise reduction curve.</span>
+                        <select id="scheduler">
+                            <option value="normal" selected>normal (default)</option>
+                            <option value="karras">karras (sharper)</option>
+                            <option value="exponential">exponential (smooth)</option>
+                            <option value="simple">simple (linear)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="option-group" style="margin-top: var(--space-2);">
+                    <label>Batch Size</label>
+                    <span class="option-hint">Generate multiple variations at once (uses more VRAM)</span>
+                    <div class="batch-row" style="margin-top: var(--space-1); margin-bottom: 0;">
+                        <input type="number" id="batchSize" class="batch-input" value="1" min="1" max="4">
+                        <span class="batch-label">images per generation</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="options-row">
+                <div class="option-group">
+                    <label>Mode</label>
+                    <select id="mode" onchange="updateEstimate(); clearPresetHighlight();">
+                        <option value="lightning">⚡ Lightning (Fast)</option>
+                        <option value="normal">🎨 Normal (Quality)</option>
+                    </select>
+                </div>
+                <div class="option-group">
+                    <label>Resolution</label>
+                    <select id="resolution" onchange="updateEstimate(); clearPresetHighlight();">
+                        <option value="512">512px</option>
+                        <option value="768">768px</option>
+                        <option value="1024">1024px</option>
+                    </select>
+                </div>
+                <div class="option-group">
+                    <label>Aspect</label>
+                    <select id="aspect" onchange="clearPresetHighlight();">
+                        <option value="square">◻️ Square</option>
+                        <option value="landscape">▬ Landscape</option>
+                        <option value="portrait">▮ Portrait</option>
+                    </select>
+                </div>
+            </div>
+            <div class="time-estimate" id="timeEstimate">⏱️ Estimated: ~1 minute</div>
+
+            <div class="btn-row">
+                <button id="generateBtn" onclick="generate()">✨ Generate</button>
+                <button class="btn-secondary" id="addToQueueBtn" onclick="addToQueue()">📋 Add to Queue</button>
+                <button class="btn-secondary" id="regenerateBtn" onclick="regenerate()" disabled>🔄 Regenerate</button>
+                <button class="btn-secondary" id="compareBtn" onclick="toggleSplitCompare()">⚔️ Compare</button>
+            </div>
+
+            <!-- Generation Queue -->
+            <div id="queueContainer" class="queue-container">
+                <div class="queue-header">
+                    <span class="queue-title">📋 Generation Queue</span>
+                    <span class="queue-count" id="queueCount">0</span>
+                </div>
+                <div class="queue-list" id="queueList"></div>
+                <div class="queue-actions">
+                    <button class="queue-btn queue-btn-start" id="queueStartBtn" onclick="processQueue()" disabled>▶ Start Queue</button>
+                    <button class="queue-btn queue-btn-clear" onclick="clearQueue()">🗑️ Clear All</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Split Compare Mode -->
+        <div id="splitCompareMode" class="split-compare-container">
+            <div class="split-compare-header">
+                <span class="split-compare-title">⚔️ Split Compare Mode</span>
+                <span class="split-compare-hint">Write prompts for each side, then generate one at a time</span>
+                <button onclick="toggleSplitCompare()" class="compare-exit-btn">✕ Exit</button>
+            </div>
+            <div class="split-compare-panels">
+                <div class="split-panel" id="splitPanelA">
+                    <div class="split-panel-header">
+                        <span class="split-panel-label">A</span>
+                        <span class="split-panel-title">Left Side</span>
+                    </div>
+                    <textarea id="promptA" class="split-prompt" placeholder="Enter prompt for left image..."></textarea>
+                    <button onclick="generateSplit('A')" class="split-generate-btn" id="generateBtnA">✨ Generate A</button>
+                    <div class="split-result" id="resultA">
+                        <div class="split-placeholder">Result will appear here</div>
+                    </div>
+                </div>
+                <div class="split-divider"></div>
+                <div class="split-panel" id="splitPanelB">
+                    <div class="split-panel-header">
+                        <span class="split-panel-label">B</span>
+                        <span class="split-panel-title">Right Side</span>
+                    </div>
+                    <textarea id="promptB" class="split-prompt" placeholder="Enter prompt for right image..."></textarea>
+                    <button onclick="generateSplit('B')" class="split-generate-btn" id="generateBtnB">✨ Generate B</button>
+                    <div class="split-result" id="resultB">
+                        <div class="split-placeholder">Result will appear here</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="status">
+            <div id="statusText"></div>
+            <div class="progress-container" id="progressContainer" style="display:none;">
+                <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+                <div class="progress-text">
+                    <span id="stepText">Step 0/4</span>
+                    <span id="timeRemaining">Calculating...</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="result"></div>
+
+        <div class="examples">
+            <h3>💡 Try these examples:</h3>
+            <span class="example-btn" onclick="setPrompt('A cute robot cat in a cozy coffee shop, warm lighting, digital art')">Robot Cat</span>
+            <span class="example-btn" onclick="setPrompt('An astronaut riding a horse on Mars, cinematic, highly detailed')">Astronaut</span>
+            <span class="example-btn" onclick="setPrompt('Japanese garden with cherry blossoms and wooden bridge, watercolor')">Japanese Garden</span>
+            <span class="example-btn" onclick="setPrompt('Cyberpunk city at night with neon signs and rain reflections')">Cyberpunk City</span>
+            <span class="example-btn" onclick="setPrompt('Magical forest with glowing mushrooms and fireflies, fantasy art')">Magic Forest</span>
+        </div>
+    </div>
+
+    <!-- Edit Tab -->
+    <div id="tab-edit" class="tab-content">
+        <div class="input-section">
+            <label>Upload Image to Edit</label>
+            <div class="upload-area" id="uploadArea" onclick="document.getElementById('imageUpload').click()">
+                <div>📁 Click or drag image here</div>
+                <img id="uploadPreview" class="upload-preview" style="display:none;">
+                <input type="file" id="imageUpload" accept="image/*" style="display:none;" onchange="handleUpload(event)">
+            </div>
+
+            <label for="editPrompt">What changes do you want?</label>
+            <textarea id="editPrompt" placeholder="e.g., Change the sky to sunset, Add a rainbow, Make it look like winter"></textarea>
+
+            <!-- Edit Mode Selection (mutually exclusive) -->
+            <div style="margin: 15px 0;">
+                <label>Edit Mode</label>
+                <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
+                    <!-- Standard Edit -->
+                    <div id="modeStandard" class="edit-mode-option active" style="padding: 12px 15px; background: rgba(102, 126, 234, 0.3); border: 2px solid #667eea; border-radius: 8px; cursor: pointer;" onclick="selectEditMode('standard')">
+                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin: 0;">
+                            <input type="radio" name="editMode" value="standard" checked style="margin: 0;">
+                            <span>🖌️ <strong>Standard Edit</strong> - General image modifications</span>
+                        </label>
+                    </div>
+
+                    <!-- Camera Angle -->
+                    <div id="modeAngles" class="edit-mode-option" style="padding: 12px 15px; background: rgba(255,255,255,0.05); border: 2px solid transparent; border-radius: 8px; cursor: pointer;" onclick="selectEditMode('angles')">
+                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin: 0;">
+                            <input type="radio" name="editMode" value="angles" style="margin: 0;">
+                            <span>📐 <strong>Camera Angles</strong> - Change viewing angle (96 positions)</span>
+                        </label>
+                        <div id="angleControls" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1);">
+                            <!-- Visual Direction Picker -->
+                            <label style="margin-bottom: 10px;">Direction (click to select)</label>
+                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; max-width: 200px; margin: 0 auto 15px;">
+                                <div class="angle-btn" data-dir="front-left quarter view" onclick="selectAngle(this, 'dir')" style="padding: 8px; text-align: center; background: rgba(255,255,255,0.1); border-radius: 4px; cursor: pointer; font-size: 20px;" title="Front-Left">↖</div>
+                                <div class="angle-btn" data-dir="front view" onclick="selectAngle(this, 'dir')" style="padding: 8px; text-align: center; background: rgba(102, 126, 234, 0.4); border-radius: 4px; cursor: pointer; font-size: 20px; border: 2px solid #667eea;" title="Front">⬆</div>
+                                <div class="angle-btn" data-dir="front-right quarter view" onclick="selectAngle(this, 'dir')" style="padding: 8px; text-align: center; background: rgba(255,255,255,0.1); border-radius: 4px; cursor: pointer; font-size: 20px;" title="Front-Right">↗</div>
+                                <div class="angle-btn" data-dir="left side view" onclick="selectAngle(this, 'dir')" style="padding: 8px; text-align: center; background: rgba(255,255,255,0.1); border-radius: 4px; cursor: pointer; font-size: 20px;" title="Left">⬅</div>
+                                <div style="padding: 8px; text-align: center; font-size: 14px; color: #888;">📷</div>
+                                <div class="angle-btn" data-dir="right side view" onclick="selectAngle(this, 'dir')" style="padding: 8px; text-align: center; background: rgba(255,255,255,0.1); border-radius: 4px; cursor: pointer; font-size: 20px;" title="Right">➡</div>
+                                <div class="angle-btn" data-dir="back-left quarter view" onclick="selectAngle(this, 'dir')" style="padding: 8px; text-align: center; background: rgba(255,255,255,0.1); border-radius: 4px; cursor: pointer; font-size: 20px;" title="Back-Left">↙</div>
+                                <div class="angle-btn" data-dir="back view" onclick="selectAngle(this, 'dir')" style="padding: 8px; text-align: center; background: rgba(255,255,255,0.1); border-radius: 4px; cursor: pointer; font-size: 20px;" title="Back">⬇</div>
+                                <div class="angle-btn" data-dir="back-right quarter view" onclick="selectAngle(this, 'dir')" style="padding: 8px; text-align: center; background: rgba(255,255,255,0.1); border-radius: 4px; cursor: pointer; font-size: 20px;" title="Back-Right">↘</div>
+                            </div>
+                            <!-- Elevation & Distance -->
+                            <div class="options-row">
+                                <div class="option-group">
+                                    <label>Height</label>
+                                    <div style="display: flex; gap: 5px;">
+                                        <div class="angle-btn elev-btn" data-elev="low-angle shot" onclick="selectAngle(this, 'elev')" style="flex:1; padding: 8px; text-align: center; background: rgba(255,255,255,0.1); border-radius: 4px; cursor: pointer; font-size: 12px;" title="Low Angle">⬇ Low</div>
+                                        <div class="angle-btn elev-btn active" data-elev="eye-level shot" onclick="selectAngle(this, 'elev')" style="flex:1; padding: 8px; text-align: center; background: rgba(102, 126, 234, 0.4); border: 2px solid #667eea; border-radius: 4px; cursor: pointer; font-size: 12px;" title="Eye Level">👁 Eye</div>
+                                        <div class="angle-btn elev-btn" data-elev="elevated shot" onclick="selectAngle(this, 'elev')" style="flex:1; padding: 8px; text-align: center; background: rgba(255,255,255,0.1); border-radius: 4px; cursor: pointer; font-size: 12px;" title="Elevated">⬆ High</div>
+                                        <div class="angle-btn elev-btn" data-elev="high-angle shot" onclick="selectAngle(this, 'elev')" style="flex:1; padding: 8px; text-align: center; background: rgba(255,255,255,0.1); border-radius: 4px; cursor: pointer; font-size: 12px;" title="Bird's Eye">🦅 Bird</div>
+                                    </div>
+                                </div>
+                                <div class="option-group">
+                                    <label>Zoom</label>
+                                    <div style="display: flex; gap: 5px;">
+                                        <div class="angle-btn dist-btn" data-dist="close-up" onclick="selectAngle(this, 'dist')" style="flex:1; padding: 8px; text-align: center; background: rgba(255,255,255,0.1); border-radius: 4px; cursor: pointer; font-size: 12px;" title="Close-up">🔍 Close</div>
+                                        <div class="angle-btn dist-btn active" data-dist="medium shot" onclick="selectAngle(this, 'dist')" style="flex:1; padding: 8px; text-align: center; background: rgba(102, 126, 234, 0.4); border: 2px solid #667eea; border-radius: 4px; cursor: pointer; font-size: 12px;" title="Medium">📷 Med</div>
+                                        <div class="angle-btn dist-btn" data-dist="wide shot" onclick="selectAngle(this, 'dist')" style="flex:1; padding: 8px; text-align: center; background: rgba(255,255,255,0.1); border-radius: 4px; cursor: pointer; font-size: 12px;" title="Wide">🌄 Wide</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <input type="hidden" id="angleDirection" value="front view">
+                            <input type="hidden" id="angleElevation" value="eye-level shot">
+                            <input type="hidden" id="angleDistance" value="medium shot">
+                        </div>
+                    </div>
+
+                    <!-- Upscale -->
+                    <div id="modeUpscale" class="edit-mode-option" style="padding: 12px 15px; background: rgba(255,255,255,0.05); border: 2px solid transparent; border-radius: 8px; cursor: pointer;" onclick="selectEditMode('upscale')">
+                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin: 0;">
+                            <input type="radio" name="editMode" value="upscale" style="margin: 0;">
+                            <span>🔍 <strong>Upscale</strong> - Enhance resolution</span>
+                        </label>
+                        <div id="upscaleControls" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1);">
+                            <label>Target Resolution</label>
+                            <div style="display: flex; gap: 10px; margin-top: 8px;">
+                                <div class="upscale-btn active" data-res="2K" onclick="selectUpscale('2K')" style="flex: 1; padding: 15px; text-align: center; background: rgba(102, 126, 234, 0.4); border: 2px solid #667eea; border-radius: 8px; cursor: pointer;">
+                                    <div style="font-size: 1.5em; font-weight: bold;">2K</div>
+                                    <div style="font-size: 0.8em; color: #aaa;">~2048px</div>
+                                </div>
+                                <div class="upscale-btn" data-res="4K" onclick="selectUpscale('4K')" style="flex: 1; padding: 15px; text-align: center; background: rgba(255,255,255,0.1); border: 2px solid transparent; border-radius: 8px; cursor: pointer;">
+                                    <div style="font-size: 1.5em; font-weight: bold;">4K</div>
+                                    <div style="font-size: 0.8em; color: #aaa;">~4096px</div>
+                                </div>
+                            </div>
+                            <input type="hidden" id="upscaleRes" value="2K">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="editImage()" id="editBtn">🖌️ Apply Edit</button>
+        </div>
+        <div id="editResult"></div>
+    </div>
+
+    <!-- Gallery Tab -->
+    <div id="tab-gallery" class="tab-content">
+        <div class="filter-tabs">
+            <div class="filter-tab active" onclick="filterGallery('all')">All</div>
+            <div class="filter-tab" onclick="filterGallery('favorites')">⭐ Favorites</div>
+            <div class="filter-tab" onclick="filterGallery('lightning')">⚡ Lightning</div>
+            <div class="filter-tab" onclick="filterGallery('normal')">🎨 Normal</div>
+            <div class="filter-tab" onclick="filterGallery('edit')">🖌️ Edit</div>
+            <div class="filter-tab" onclick="enterCompareMode()">⚔️ Compare</div>
+        </div>
+        <div id="compareMode" class="compare-mode-container">
+            <div class="compare-header">
+                <span class="compare-title">📊 Compare Mode: Select 2 images to compare side-by-side</span>
+                <button onclick="exitCompareMode()" class="compare-exit-btn">✕ Exit</button>
+            </div>
+            <div id="compareSlots" class="compare-slots">
+                <div id="compareSlot1" class="compare-slot">
+                    Click an image for Slot 1
+                </div>
+                <div id="compareSlot2" class="compare-slot">
+                    Click an image for Slot 2
+                </div>
+            </div>
+        </div>
+        <div class="gallery" id="gallery"></div>
+    </div>
+
+    <!-- Settings Tab -->
+    <div id="tab-settings" class="tab-content">
+        <div class="input-section">
+            <h2 style="margin-top: 0;">⚙️ Settings</h2>
+
+            <!-- Provider Toggle -->
+            <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+                <label style="font-size: 1.1em; margin-bottom: 15px; display: block;">Image Generation</label>
+                <div style="background: rgba(72, 187, 120, 0.1); padding: 15px; border-radius: 12px; border: 1px solid rgba(72, 187, 120, 0.3);">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 1.5em;">💻</span>
+                        <div>
+                            <div style="font-weight: bold;">Local Mode (ComfyUI + Qwen)</div>
+                            <div style="font-size: 0.85em; color: #888;">Image generation on your Mac</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Local Models Info -->
+            <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+                <label>Local Models</label>
+                <div style="margin-top: 10px; font-size: 0.9em; color: #aaa;">
+                    <div style="margin-bottom: 8px;">🖼️ <strong>Image Gen:</strong> Qwen-Image-2512 Q6_K + Abliterated Text Encoder Q6_K</div>
+                    <div style="margin-bottom: 8px;">🖌️ <strong>Image Edit:</strong> Qwen-Image-Edit-2511 Q4_K_M (balanced VRAM)</div>
+                    <div>✨ <strong>Refinement:</strong> Qwen 2.5 0.5B via Ollama (~350MB)</div>
+                </div>
+            </div>
+
+            <!-- Status -->
+            <div id="settingsStatus" style="padding: 15px; background: rgba(72, 187, 120, 0.2); border-radius: 8px; display: none; margin-top: 15px;">
+                Settings saved!
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Modal -->
+    <div class="modal" id="imageModal" onclick="closeModal()">
+        <span class="modal-close">&times;</span>
+        <img id="modalImage" src="">
+    </div>
+
+    <script>
+        let currentPromptId = null;
+        let progressInterval = null;
+        let startTime = null;
+        let lastSeed = null;
+        let lastPrompt = '';
+        let uploadedImageData = null;
+        let favorites = JSON.parse(localStorage.getItem('qwen_favorites') || '[]');
+        let promptHistory = JSON.parse(localStorage.getItem('qwen_history') || '[]');
+
+        // Generation Queue
+        let generationQueue = [];
+        let queueProcessing = false;
+
+        function addToQueue() {
+            const prompt = document.getElementById('prompt').value.trim();
+            if (!prompt) { alert('Please enter a prompt!'); return; }
+
+            const mode = document.getElementById('mode').value;
+            const resolution = parseInt(document.getElementById('resolution').value);
+            const aspect = document.getElementById('aspect').value;
+            const negativePrompt = document.getElementById('negativePrompt').value.trim();
+            const seedInput = document.getElementById('seedInput').value;
+            const seed = seedInput ? parseInt(seedInput) : null;
+            const sampler = document.getElementById('sampler').value;
+            const scheduler = document.getElementById('scheduler').value;
+
+            generationQueue.push({
+                id: Date.now(),
+                prompt,
+                mode,
+                resolution,
+                aspect,
+                negativePrompt,
+                seed,
+                sampler,
+                scheduler,
+                status: 'pending'
+            });
+
+            updateQueueUI();
+            document.getElementById('prompt').value = '';
+        }
+
+        function updateQueueUI() {
+            const container = document.getElementById('queueContainer');
+            const list = document.getElementById('queueList');
+            const count = document.getElementById('queueCount');
+            const startBtn = document.getElementById('queueStartBtn');
+
+            if (generationQueue.length === 0) {
+                container.classList.remove('active');
+                return;
+            }
+
+            container.classList.add('active');
+            count.textContent = generationQueue.length;
+            startBtn.disabled = queueProcessing || generationQueue.length === 0;
+            startBtn.textContent = queueProcessing ? '⏳ Processing...' : '▶ Start Queue';
+
+            list.innerHTML = generationQueue.map((item, idx) => {
+                const statusIcon = item.status === 'processing' ? '⏳' : item.status === 'done' ? '✅' : item.status === 'error' ? '❌' : '⏸️';
+                const modeIcon = item.mode === 'lightning' ? '⚡' : '🎨';
+                return '<div class="queue-item' + (item.status === 'processing' ? ' processing' : '') + '">' +
+                    '<span class="queue-item-status">' + statusIcon + '</span>' +
+                    '<span class="queue-item-prompt" title="' + item.prompt.replace(/"/g, '&quot;') + '">' + item.prompt + '</span>' +
+                    '<span class="queue-item-settings">' + modeIcon + ' ' + item.resolution + 'px</span>' +
+                    (item.status === 'pending' ? '<span class="queue-item-remove" onclick="removeFromQueue(' + item.id + ')">✕</span>' : '') +
+                    '</div>';
+            }).join('');
+        }
+
+        function removeFromQueue(id) {
+            generationQueue = generationQueue.filter(item => item.id !== id);
+            updateQueueUI();
+        }
+
+        function clearQueue() {
+            if (queueProcessing) {
+                if (!confirm('Queue is processing. Stop and clear all?')) return;
+                queueProcessing = false;
+            }
+            generationQueue = [];
+            updateQueueUI();
+        }
+
+        async function processQueue() {
+            if (queueProcessing || generationQueue.length === 0) return;
+
+            queueProcessing = true;
+            updateQueueUI();
+
+            const btn = document.getElementById('generateBtn');
+            const status = document.getElementById('status');
+            const statusText = document.getElementById('statusText');
+            const result = document.getElementById('result');
+
+            for (let i = 0; i < generationQueue.length; i++) {
+                if (!queueProcessing) break;
+
+                const item = generationQueue[i];
+                if (item.status !== 'pending') continue;
+
+                item.status = 'processing';
+                updateQueueUI();
+
+                btn.disabled = true;
+                btn.textContent = '⏳ Queue ' + (i + 1) + '/' + generationQueue.length;
+                status.style.display = 'block';
+                status.className = 'generating';
+                statusText.textContent = '📋 Processing queue item ' + (i + 1) + '/' + generationQueue.length;
+
+                try {
+                    const queueResponse = await fetch('/queue', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            prompt: item.prompt,
+                            mode: item.mode,
+                            resolution: item.resolution,
+                            aspect: item.aspect,
+                            negativePrompt: item.negativePrompt,
+                            seed: item.seed,
+                            sampler: item.sampler,
+                            scheduler: item.scheduler
+                        })
+                    });
+                    const queueData = await queueResponse.json();
+                    if (!queueData.prompt_id) throw new Error(queueData.error || 'Failed to queue');
+
+                    currentPromptId = queueData.prompt_id;
+                    progressInterval = setInterval(pollProgress, 500);
+
+                    const response = await fetch('/wait?prompt_id=' + currentPromptId);
+                    const data = await response.json();
+
+                    clearInterval(progressInterval);
+
+                    if (data.success) {
+                        item.status = 'done';
+                        item.result = data.image;
+                        const filename = data.image.split('/').pop();
+                        result.innerHTML = '<img src="' + data.image + '?t=' + Date.now() + '">' +
+                            '<div class="result-actions">' +
+                            '<a href="' + data.image + '" download="' + filename + '"><button class="btn-green">⬇️ Download</button></a>' +
+                            '<button onclick="toggleFavorite(\\'' + filename + '\\')">⭐ Favorite</button>' +
+                            '</div>' +
+                            '<div class="result-info">Queue item ' + (i + 1) + ' of ' + generationQueue.length + '</div>';
+                    } else {
+                        item.status = 'error';
+                        item.error = data.error;
+                    }
+                } catch (e) {
+                    clearInterval(progressInterval);
+                    item.status = 'error';
+                    item.error = e.message;
+                }
+
+                updateQueueUI();
+            }
+
+            queueProcessing = false;
+            btn.disabled = false;
+            btn.textContent = '✨ Generate';
+            status.className = 'success';
+            statusText.textContent = '✅ Queue complete!';
+            updateQueueUI();
+
+            // Remove completed items after a delay
+            setTimeout(() => {
+                generationQueue = generationQueue.filter(item => item.status === 'pending');
+                updateQueueUI();
+            }, 3000);
+        }
+
+        // Presets configuration
+        const PRESETS = {
+            quick: { mode: 'lightning', resolution: 512, aspect: 'square' },
+            portrait: { mode: 'lightning', resolution: 768, aspect: 'portrait' },
+            landscape: { mode: 'lightning', resolution: 768, aspect: 'landscape' },
+            wallpaper: { mode: 'lightning', resolution: 1024, aspect: 'landscape' },
+            quality: { mode: 'normal', resolution: 768, aspect: 'square' },
+            hd_quality: { mode: 'normal', resolution: 1024, aspect: 'square' }
+        };
+
+        function showTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById('tab-' + tab).classList.add('active');
+            if (tab === 'gallery') loadGallery();
+        }
+
+        function toggleAdvanced() {
+            const section = document.getElementById('advancedSection');
+            const toggle = document.querySelector('.advanced-toggle');
+            section.classList.toggle('show');
+            toggle.textContent = section.classList.contains('show') ? '▼ Advanced Options' : '▶ Advanced Options';
+        }
+
+        function setPrompt(text) {
+            document.getElementById('prompt').value = text;
+        }
+
+        // Preset functions
+        function applyPreset(preset) {
+            const p = PRESETS[preset];
+            document.getElementById('mode').value = p.mode;
+            document.getElementById('resolution').value = p.resolution;
+            document.getElementById('aspect').value = p.aspect;
+            updateEstimate();
+
+            // Highlight active preset
+            document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelector('[data-preset="' + preset + '"]').classList.add('active');
+        }
+
+        function clearPresetHighlight() {
+            document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+        }
+
+        // History functions
+        function toggleHistory() {
+            const dropdown = document.getElementById('historyDropdown');
+            dropdown.classList.toggle('show');
+            if (dropdown.classList.contains('show')) renderHistory();
+        }
+
+        // AI-Powered Prompt Refinement - Local (Ollama/Qwen) and Cloud (Gemini)
+        let isRefining = false;
+
+        async function refinePromptAI(mode, provider) {
+            if (isRefining) return;
+
+            const promptEl = document.getElementById('prompt');
+            const prompt = promptEl.value.trim();
+            if (!prompt) {
+                alert('Enter a prompt first');
+                return;
+            }
+
+            isRefining = true;
+            const buttons = document.querySelectorAll('.refine-btn');
+            buttons.forEach(btn => {
+                btn.disabled = true;
+                btn.style.opacity = '0.5';
+            });
+            promptEl.style.opacity = '0.7';
+            const providerName = provider === 'ollama' ? 'Local AI' : 'Cloud AI';
+            promptEl.placeholder = providerName + ' is enhancing your prompt...';
+
+            try {
+                const response = await fetch('/refine', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ prompt: prompt, mode: mode, provider: provider })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    promptEl.value = data.refined;
+                } else {
+                    alert('Refinement failed: ' + (data.error || 'Unknown error'));
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+
+            isRefining = false;
+            buttons.forEach(btn => {
+                btn.disabled = false;
+                btn.style.opacity = '1';
+            });
+            promptEl.style.opacity = '1';
+            promptEl.placeholder = 'Describe your image... e.g., A majestic dragon flying over mountains at sunset';
+        }
+
+        // Local refinement (Qwen abliterated - uncensored)
+        function refineLocal(mode) { refinePromptAI(mode, 'ollama'); }
+
+        function renderHistory() {
+            const dropdown = document.getElementById('historyDropdown');
+            document.getElementById('historyCount').textContent = '(' + promptHistory.length + ')';
+            if (promptHistory.length === 0) {
+                dropdown.innerHTML = '<div class="history-item" style="color:#888;">No recent prompts</div>';
+                return;
+            }
+            dropdown.innerHTML = promptHistory.slice(0, 10).map((item, i) =>
+                '<div class="history-item" style="display:flex; justify-content:space-between; align-items:center;">' +
+                '<div onclick="useHistoryPrompt(' + i + ')" style="flex:1; cursor:pointer;">' +
+                '<div>' + item.prompt.substring(0, 50) + (item.prompt.length > 50 ? '...' : '') + '</div>' +
+                '<div class="history-meta">' + item.mode + ' | ' + item.resolution + 'px</div>' +
+                '</div>' +
+                '<span onclick="event.stopPropagation(); deleteHistoryItem(' + i + ')" style="cursor:pointer; padding:5px; opacity:0.6;" title="Delete">🗑️</span>' +
+                '</div>'
+            ).join('');
+        }
+
+        async function deleteHistoryItem(index) {
+            try {
+                const response = await fetch('/delete-history', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({index: index})
+                });
+                const data = await response.json();
+                if (data.success) {
+                    promptHistory = data.history;
+                    renderHistory();
+                }
+            } catch (e) {
+                console.log('Failed to delete history item');
+            }
+        }
+
+        function useHistoryPrompt(index) {
+            const item = promptHistory[index];
+            document.getElementById('prompt').value = item.prompt;
+            document.getElementById('mode').value = item.mode;
+            document.getElementById('resolution').value = item.resolution;
+            document.getElementById('aspect').value = item.aspect;
+            if (item.negativePrompt) document.getElementById('negativePrompt').value = item.negativePrompt;
+            updateEstimate();
+            document.getElementById('historyDropdown').classList.remove('show');
+        }
+
+        function addToHistory(prompt, mode, resolution, aspect, negativePrompt) {
+            const item = { prompt, mode, resolution, aspect, negativePrompt, timestamp: Date.now() };
+            // Remove duplicate if exists
+            promptHistory = promptHistory.filter(h => h.prompt !== prompt);
+            promptHistory.unshift(item);
+            promptHistory = promptHistory.slice(0, 20); // Keep last 20
+            localStorage.setItem('qwen_history', JSON.stringify(promptHistory));
+            fetch('/history', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(item) });
+        }
+
+        function updateEstimate() {
+            const mode = document.getElementById('mode').value;
+            const resolution = parseInt(document.getElementById('resolution').value);
+            const batch = parseInt(document.getElementById('batchSize').value) || 1;
+            const times = { lightning: { 512: 1, 768: 2, 1024: 3 }, normal: { 512: 7, 768: 12, 1024: 16 } };
+            const totalTime = times[mode][resolution] * batch;
+            document.getElementById('timeEstimate').textContent = '⏱️ Estimated: ~' + totalTime + ' min' + (batch > 1 ? ' (for ' + batch + ' images)' : '');
+        }
+
+        function formatTime(seconds) {
+            if (seconds < 60) return Math.round(seconds) + 's';
+            return Math.floor(seconds / 60) + 'm ' + Math.round(seconds % 60) + 's';
+        }
+
+        async function pollProgress() {
+            if (!currentPromptId) return;
+            try {
+                const response = await fetch('/progress?prompt_id=' + currentPromptId);
+                const data = await response.json();
+                const progressFill = document.getElementById('progressFill');
+                const stepText = document.getElementById('stepText');
+                const timeRemaining = document.getElementById('timeRemaining');
+                const progressContainer = document.getElementById('progressContainer');
+                const statusText = document.getElementById('statusText');
+
+                if (data.status === 'loading') {
+                    statusText.textContent = '📦 ' + data.message;
+                    progressContainer.style.display = 'none';
+                } else if (data.status === 'generating') {
+                    progressContainer.style.display = 'block';
+                    const percent = (data.current_step / data.total_steps) * 100;
+                    progressFill.style.width = percent + '%';
+                    stepText.textContent = 'Step ' + data.current_step + '/' + data.total_steps;
+                    statusText.textContent = '🎨 Generating...';
+                    if (data.current_step > 0 && startTime) {
+                        const elapsed = (Date.now() - startTime) / 1000;
+                        const remaining = (elapsed / data.current_step) * (data.total_steps - data.current_step);
+                        timeRemaining.textContent = '~' + formatTime(remaining) + ' left';
+                    }
+                } else if (data.status === 'done') {
+                    progressFill.style.width = '100%';
+                    timeRemaining.textContent = 'Done!';
+                }
+            } catch (e) {}
+        }
+
+        async function generate() {
+            const prompt = document.getElementById('prompt').value.trim();
+            if (!prompt) { alert('Please enter a prompt!'); return; }
+
+            const mode = document.getElementById('mode').value;
+            const resolution = parseInt(document.getElementById('resolution').value);
+            const aspect = document.getElementById('aspect').value;
+            const negativePrompt = document.getElementById('negativePrompt').value.trim();
+            const seedInput = document.getElementById('seedInput').value;
+            const seed = seedInput ? parseInt(seedInput) : null;
+            const sampler = document.getElementById('sampler').value;
+            const scheduler = document.getElementById('scheduler').value;
+            const batchSize = parseInt(document.getElementById('batchSize').value) || 1;
+
+            lastPrompt = prompt;
+            addToHistory(prompt, mode, resolution, aspect, negativePrompt);
+
+            const btn = document.getElementById('generateBtn');
+            const status = document.getElementById('status');
+            const statusText = document.getElementById('statusText');
+            const result = document.getElementById('result');
+            const progressContainer = document.getElementById('progressContainer');
+
+            btn.disabled = true;
+            btn.textContent = '⏳ Generating...';
+            status.style.display = 'block';
+            status.className = 'generating';
+            statusText.textContent = '🚀 Starting...';
+            progressContainer.style.display = 'none';
+            document.getElementById('progressFill').style.width = '0%';
+            result.innerHTML = '';
+            startTime = Date.now();
+
+            try {
+                const queueResponse = await fetch('/queue', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({prompt, mode, resolution, aspect, negativePrompt, seed, sampler, scheduler})
+                });
+                const queueData = await queueResponse.json();
+                if (!queueData.prompt_id) throw new Error(queueData.error || 'Failed to queue');
+
+                currentPromptId = queueData.prompt_id;
+                lastSeed = queueData.seed;
+                progressInterval = setInterval(pollProgress, 500);
+
+                const response = await fetch('/wait?prompt_id=' + currentPromptId);
+                const data = await response.json();
+
+                clearInterval(progressInterval);
+                currentPromptId = null;
+
+                if (data.success) {
+                    status.className = 'success';
+                    statusText.textContent = '✅ Done!';
+                    progressContainer.style.display = 'none';
+                    const filename = data.image.split('/').pop();
+                    result.innerHTML = '<img src="' + data.image + '?t=' + Date.now() + '">' +
+                        '<div class="result-actions">' +
+                        '<a href="' + data.image + '" download="' + filename + '"><button class="btn-green">⬇️ Download</button></a>' +
+                        '<button onclick="toggleFavorite(\\'' + filename + '\\')">⭐ Favorite</button>' +
+                        '<button class="btn-secondary" onclick="copySeed()">📋 Copy Seed</button>' +
+                        '</div>' +
+                        '<div class="result-info">Seed: <span class="seed-display" onclick="copySeed()" title="Click to copy">' + lastSeed + '</span></div>';
+                    document.getElementById('regenerateBtn').disabled = false;
+                } else {
+                    status.className = 'error';
+                    statusText.textContent = '❌ ' + data.error;
+                }
+            } catch (e) {
+                clearInterval(progressInterval);
+                status.className = 'error';
+                statusText.textContent = '❌ ' + e.message;
+            } finally {
+                // Always reset button state
+                btn.disabled = false;
+                btn.textContent = '✨ Generate';
+            }
+        }
+
+        function regenerate() {
+            document.getElementById('seedInput').value = '';
+            generate();
+        }
+
+        function copySeed() {
+            navigator.clipboard.writeText(lastSeed.toString());
+            alert('Seed copied: ' + lastSeed);
+        }
+
+        // Split Compare Mode Functions
+        let splitCompareActive = false;
+
+        function toggleSplitCompare() {
+            const container = document.getElementById('splitCompareMode');
+            const inputSection = document.querySelector('#tab-generate .input-section');
+            const result = document.getElementById('result');
+            const examples = document.querySelector('#tab-generate .examples');
+
+            splitCompareActive = !splitCompareActive;
+
+            if (splitCompareActive) {
+                container.style.display = 'block';
+                inputSection.style.display = 'none';
+                result.style.display = 'none';
+                examples.style.display = 'none';
+            } else {
+                container.style.display = 'none';
+                inputSection.style.display = 'block';
+                result.style.display = 'block';
+                examples.style.display = 'block';
+            }
+        }
+
+        async function generateSplit(side) {
+            const prompt = document.getElementById('prompt' + side).value.trim();
+            if (!prompt) { alert('Please enter a prompt for side ' + side + '!'); return; }
+
+            const mode = document.getElementById('mode').value;
+            const resolution = parseInt(document.getElementById('resolution').value);
+            const aspect = document.getElementById('aspect').value;
+            const negativePrompt = document.getElementById('negativePrompt').value.trim();
+
+            const btn = document.getElementById('generateBtn' + side);
+            const resultDiv = document.getElementById('result' + side);
+
+            btn.disabled = true;
+            btn.textContent = '⏳ Generating...';
+            resultDiv.innerHTML = '<div class="split-placeholder">Generating...</div>';
+
+            try {
+                const queueResponse = await fetch('/queue', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({prompt, mode, resolution, aspect, negativePrompt})
+                });
+                const queueData = await queueResponse.json();
+                if (!queueData.prompt_id) throw new Error(queueData.error || 'Failed to queue');
+
+                const response = await fetch('/wait?prompt_id=' + queueData.prompt_id);
+                const data = await response.json();
+
+                if (data.success) {
+                    resultDiv.innerHTML = '<img src="' + data.image + '?t=' + Date.now() + '">';
+                } else {
+                    resultDiv.innerHTML = '<div class="split-placeholder" style="color: var(--error);">❌ ' + data.error + '</div>';
+                }
+            } catch (e) {
+                resultDiv.innerHTML = '<div class="split-placeholder" style="color: var(--error);">❌ ' + e.message + '</div>';
+            } finally {
+                // Always reset button state
+                btn.disabled = false;
+                btn.textContent = '✨ Generate ' + side;
+            }
+        }
+
+        // Compare function - generates same prompt with Lightning vs Normal
+        async function compareGenerate() {
+            const prompt = document.getElementById('prompt').value.trim();
+            if (!prompt) { alert('Please enter a prompt!'); return; }
+
+            const resolution = parseInt(document.getElementById('resolution').value);
+            const aspect = document.getElementById('aspect').value;
+            const negativePrompt = document.getElementById('negativePrompt').value.trim();
+            const seed = Math.floor(Math.random() * 999999999); // Same seed for both
+
+            const btn = document.getElementById('compareBtn');
+            const status = document.getElementById('status');
+            const statusText = document.getElementById('statusText');
+            const result = document.getElementById('result');
+
+            btn.disabled = true;
+            btn.textContent = '⏳ Comparing...';
+            status.style.display = 'block';
+            status.className = 'generating';
+            statusText.textContent = '⚡ Generating Lightning version...';
+            result.innerHTML = '';
+
+            try {
+                // Generate Lightning version
+                const lightningResponse = await fetch('/queue', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({prompt, mode: 'lightning', resolution, aspect, negativePrompt, seed})
+                });
+                const lightningQueue = await lightningResponse.json();
+                if (!lightningQueue.prompt_id) throw new Error('Failed to queue lightning version');
+
+                const lightningResult = await fetch('/wait?prompt_id=' + lightningQueue.prompt_id);
+                const lightningData = await lightningResult.json();
+
+                statusText.textContent = '🎨 Generating Normal version (this takes longer)...';
+
+                // Generate Normal version with same seed
+                const normalResponse = await fetch('/queue', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({prompt, mode: 'normal', resolution, aspect, negativePrompt, seed})
+                });
+                const normalQueue = await normalResponse.json();
+                if (!normalQueue.prompt_id) throw new Error('Failed to queue normal version');
+
+                const normalResult = await fetch('/wait?prompt_id=' + normalQueue.prompt_id);
+                const normalData = await normalResult.json();
+
+                status.className = 'success';
+                statusText.textContent = '✅ Comparison complete!';
+
+                // Show side-by-side comparison
+                result.innerHTML =
+                    '<h3 style="text-align:center;margin-bottom:15px;">⚔️ Lightning vs Normal (Same Seed: ' + seed + ')</h3>' +
+                    '<div class="comparison">' +
+                    '<div class="comparison-col">' +
+                    '<div class="comparison-label">⚡ Lightning (4 steps, ~1 min)</div>' +
+                    (lightningData.success ? '<img src="' + lightningData.image + '?t=' + Date.now() + '">' : '<p>Failed</p>') +
+                    '</div>' +
+                    '<div class="comparison-col">' +
+                    '<div class="comparison-label">🎨 Normal (30 steps, ~7 min)</div>' +
+                    (normalData.success ? '<img src="' + normalData.image + '?t=' + Date.now() + '">' : '<p>Failed</p>') +
+                    '</div>' +
+                    '</div>';
+
+                addToHistory(prompt, 'compare', resolution, aspect, negativePrompt);
+            } catch (e) {
+                status.className = 'error';
+                statusText.textContent = '❌ ' + e.message;
+            } finally {
+                // Always reset button state
+                btn.disabled = false;
+                btn.textContent = '⚔️ Compare';
+            }
+        }
+
+        function toggleFavorite(filename) {
+            const index = favorites.indexOf(filename);
+            if (index > -1) {
+                favorites.splice(index, 1);
+            } else {
+                favorites.push(filename);
+            }
+            localStorage.setItem('qwen_favorites', JSON.stringify(favorites));
+            fetch('/favorite', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({filename, favorites})
+            });
+        }
+
+        // Gallery functions
+        let compareMode = false;
+        let compareSlot1 = null;
+        let compareSlot2 = null;
+
+        function getImageType(img) {
+            if (img.includes('edit')) return 'edit';
+            if (img.includes('lightning')) return 'lightning';
+            if (img.includes('normal') || img.includes('image')) return 'normal';
+            return 'lightning';
+        }
+
+        async function loadGallery() {
+            try {
+                const response = await fetch('/gallery');
+                const images = await response.json();
+                const gallery = document.getElementById('gallery');
+                gallery.innerHTML = images.map(img => {
+                    const type = getImageType(img);
+                    const q = String.fromCharCode(39);
+                    return '<div class="gallery-item" data-type="' + type + '" data-filename="' + img + '">' +
+                        '<img src="/output/' + img + '" onclick="handleGalleryClick(' + q + img + q + ')">' +
+                        '<div class="gallery-actions">' +
+                        '<span class="favorite-star" onclick="event.stopPropagation(); toggleFavorite(' + q + img + q + ')">' + (favorites.includes(img) ? '⭐' : '☆') + '</span>' +
+                        '<span class="delete-btn" onclick="event.stopPropagation(); deleteImage(' + q + img + q + ')">🗑️</span>' +
+                        '</div>' +
+                        '<div class="gallery-type-badge">' + (type === 'lightning' ? '⚡' : type === 'edit' ? '🖌️' : '🎨') + '</div>' +
+                        '</div>';
+                }).join('');
+            } catch (e) {
+                document.getElementById('gallery').innerHTML = '<p>Could not load gallery</p>';
+            }
+        }
+
+        function handleGalleryClick(img) {
+            if (compareMode) {
+                addToCompare(img);
+            } else {
+                openModal('/output/' + img);
+            }
+        }
+
+        function filterGallery(filter) {
+            document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            document.querySelectorAll('.gallery-item').forEach(item => {
+                const imgName = item.dataset.filename;
+                if (filter === 'all') item.style.display = 'block';
+                else if (filter === 'favorites') item.style.display = favorites.includes(imgName) ? 'block' : 'none';
+                else item.style.display = item.dataset.type === filter ? 'block' : 'none';
+            });
+        }
+
+        function enterCompareMode() {
+            compareMode = true;
+            compareSlot1 = null;
+            compareSlot2 = null;
+            document.getElementById('compareMode').style.display = 'block';
+            resetCompareSlot('compareSlot1', 'Click an image for Slot 1');
+            resetCompareSlot('compareSlot2', 'Click an image for Slot 2');
+            document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+
+        function exitCompareMode() {
+            compareMode = false;
+            compareSlot1 = null;
+            compareSlot2 = null;
+            document.getElementById('compareMode').style.display = 'none';
+            document.querySelector('.filter-tab').classList.add('active');
+        }
+
+        function resetCompareSlot(slotId, placeholder) {
+            const slot = document.getElementById(slotId);
+            slot.innerHTML = placeholder;
+            slot.classList.remove('filled');
+            slot.style.border = '';
+        }
+
+        function addToCompare(img) {
+            const imgHtml = '<img src="/output/' + img + '">';
+            const slot1 = document.getElementById('compareSlot1');
+            const slot2 = document.getElementById('compareSlot2');
+
+            if (!compareSlot1) {
+                compareSlot1 = img;
+                slot1.innerHTML = imgHtml;
+                slot1.classList.add('filled');
+            } else if (!compareSlot2) {
+                compareSlot2 = img;
+                slot2.innerHTML = imgHtml;
+                slot2.classList.add('filled');
+            } else {
+                // Replace slot 1, shift slot 2
+                compareSlot1 = compareSlot2;
+                compareSlot2 = img;
+                slot1.innerHTML = slot2.innerHTML;
+                slot2.innerHTML = imgHtml;
+            }
+        }
+
+        async function deleteImage(filename) {
+            if (!confirm('Delete ' + filename + '?')) return;
+            try {
+                const response = await fetch('/delete-image', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({filename: filename})
+                });
+                const data = await response.json();
+                if (data.success) {
+                    loadGallery();
+                } else {
+                    alert('Failed to delete: ' + data.error);
+                }
+            } catch (e) {
+                alert('Error deleting image');
+            }
+        }
+
+        function openModal(src) {
+            document.getElementById('modalImage').src = src;
+            document.getElementById('imageModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('imageModal').classList.remove('active');
+        }
+
+        // Upload/Edit functions
+        function handleUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    uploadedImageData = e.target.result;
+                    const preview = document.getElementById('uploadPreview');
+                    preview.src = uploadedImageData;
+                    preview.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // Drag and drop
+        const uploadArea = document.getElementById('uploadArea');
+        uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+        uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                document.getElementById('imageUpload').files = e.dataTransfer.files;
+                handleUpload({target: {files: [file]}});
+            }
+        });
+
+        let currentEditMode = 'standard';
+
+        function selectEditMode(mode) {
+            currentEditMode = mode;
+
+            // Update visual selection
+            document.querySelectorAll('.edit-mode-option').forEach(el => {
+                el.style.background = 'rgba(255,255,255,0.05)';
+                el.style.borderColor = 'transparent';
+            });
+            const selected = document.getElementById('mode' + mode.charAt(0).toUpperCase() + mode.slice(1));
+            selected.style.background = 'rgba(102, 126, 234, 0.3)';
+            selected.style.borderColor = '#667eea';
+
+            // Update radio button
+            document.querySelector('input[name="editMode"][value="' + mode + '"]').checked = true;
+
+            // Show/hide angle controls and upscale controls
+            document.getElementById('angleControls').style.display = mode === 'angles' ? 'block' : 'none';
+            document.getElementById('upscaleControls').style.display = mode === 'upscale' ? 'block' : 'none';
+
+            // For upscale mode, prompt is optional (auto-generated)
+            if (mode === 'upscale') {
+                document.getElementById('editPrompt').placeholder = 'Optional: describe any additional changes, or leave blank for pure upscale';
+            } else {
+                document.getElementById('editPrompt').placeholder = 'Describe what you want to change...';
+            }
+        }
+
+        // Visual angle picker selection
+        function selectAngle(element, type) {
+            let group, valueField;
+            if (type === 'dir') {
+                group = document.querySelectorAll('.angle-btn[data-dir]');
+                valueField = 'angleDirection';
+            } else if (type === 'elev') {
+                group = document.querySelectorAll('.elev-btn');
+                valueField = 'angleElevation';
+            } else if (type === 'dist') {
+                group = document.querySelectorAll('.dist-btn');
+                valueField = 'angleDistance';
+            }
+
+            // Remove active styling from all in group
+            group.forEach(btn => {
+                btn.style.background = 'rgba(255,255,255,0.1)';
+                btn.style.border = 'none';
+            });
+
+            // Add active styling to clicked
+            element.style.background = 'rgba(102, 126, 234, 0.4)';
+            element.style.border = '2px solid #667eea';
+
+            // Update hidden value
+            const value = element.dataset.dir || element.dataset.elev || element.dataset.dist;
+            document.getElementById(valueField).value = value;
+        }
+
+        // Upscale resolution selection
+        function selectUpscale(resolution) {
+            // Update button styling
+            document.querySelectorAll('.upscale-btn').forEach(btn => {
+                if (btn.dataset.res === resolution) {
+                    btn.style.background = 'rgba(102, 126, 234, 0.4)';
+                    btn.style.border = '2px solid #667eea';
+                } else {
+                    btn.style.background = 'rgba(255,255,255,0.1)';
+                    btn.style.border = '2px solid transparent';
+                }
+            });
+            document.getElementById('upscaleRes').value = resolution;
+        }
+
+        function getAnglePrompt() {
+            const direction = document.getElementById('angleDirection').value;
+            const elevation = document.getElementById('angleElevation').value;
+            const distance = document.getElementById('angleDistance').value;
+            return '<sks> ' + direction + ' ' + elevation + ' ' + distance;
+        }
+
+        async function editImage() {
+            if (!uploadedImageData) { alert('Please upload an image first'); return; }
+            let editPrompt = document.getElementById('editPrompt').value.trim();
+
+            const useAnglesLora = currentEditMode === 'angles';
+            const useUpscaleLora = currentEditMode === 'upscale';
+            const anglePrompt = useAnglesLora ? getAnglePrompt() : '';
+
+            // For upscale mode, auto-generate prompt if empty
+            if (useUpscaleLora) {
+                const upscaleRes = document.getElementById('upscaleRes').value;
+                const upscaleTrigger = upscaleRes === '4K' ? '<s2k>' : '<s2k>';  // Both use same trigger
+                if (!editPrompt) {
+                    editPrompt = upscaleTrigger;  // Pure upscale with trigger
+                } else {
+                    editPrompt = upscaleTrigger + ' ' + editPrompt;  // Upscale + modifications
+                }
+            } else if (!editPrompt && !useAnglesLora) {
+                alert('Please describe the changes');
+                return;
+            } else if (!editPrompt && useAnglesLora) {
+                editPrompt = anglePrompt;  // Camera angle only
+            }
+
+            document.getElementById('editBtn').disabled = true;
+            document.getElementById('editBtn').textContent = '⏳ Processing...';
+            document.getElementById('editResult').innerHTML = '<p style="text-align:center;">🎨 Editing image... This may take a few minutes.</p>';
+
+            try {
+                const response = await fetch('/edit', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        image: uploadedImageData,
+                        prompt: editPrompt,
+                        useAnglesLora: useAnglesLora,
+                        useUpscaleLora: useUpscaleLora,
+                        anglePrompt: anglePrompt
+                    })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    document.getElementById('editResult').innerHTML = '<img src="' + data.image + '?t=' + Date.now() + '" style="max-width:100%; border-radius:12px;">' +
+                        '<div class="result-actions"><a href="' + data.image + '" download><button class="btn-green">⬇️ Download</button></a></div>';
+                } else {
+                    document.getElementById('editResult').innerHTML = '<p style="color:#f56565;">❌ ' + data.error + '</p>';
+                }
+            } catch (e) {
+                document.getElementById('editResult').innerHTML = '<p style="color:#f56565;">❌ ' + e.message + '</p>';
+            } finally {
+                // Always reset button state, even if request times out or fails
+                document.getElementById('editBtn').disabled = false;
+                document.getElementById('editBtn').textContent = '🖌️ Apply Edit';
+            }
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+        });
+
+        // Settings - local only
+        let appSettings = { ai_provider: 'ollama' };
+
+    </script>
+</body>
+</html>
+'''
+
+class RequestHandler(SimpleHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == '/' or self.path == '/index.html':
+            self.send_response(200)
+            self.send_header('Content-type', 'text/html; charset=utf-8')
+            self.end_headers()
+            self.wfile.write(HTML_PAGE.encode('utf-8'))
+        elif self.path.startswith('/output/'):
+            # Strip query string from path (e.g., ?t=123 cache busters)
+            clean_path = urllib.parse.urlparse(self.path).path
+            file_path = os.path.join(os.path.dirname(__file__), clean_path[1:])
+            if os.path.exists(file_path):
+                self.send_response(200)
+                self.send_header('Content-type', 'image/png')
+                self.end_headers()
+                with open(file_path, 'rb') as f:
+                    self.wfile.write(f.read())
+            else:
+                self.send_error(404)
+        elif self.path.startswith('/progress'):
+            query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            prompt_id = query.get('prompt_id', [''])[0]
+            result = get_progress(prompt_id)
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(result).encode())
+        elif self.path.startswith('/wait'):
+            query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            prompt_id = query.get('prompt_id', [''])[0]
+            result = wait_for_image(prompt_id)
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(result).encode())
+        elif self.path == '/gallery':
+            images = get_gallery_images()
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(images).encode())
+        else:
+            self.send_error(404)
+
+    def do_POST(self):
+        content_length = int(self.headers.get('Content-Length', 0))
+        post_data = self.rfile.read(content_length)
+        data = json.loads(post_data.decode()) if post_data else {}
+
+        if self.path == '/queue':
+            result = queue_prompt(
+                data.get('prompt', ''),
+                data.get('mode', 'lightning'),
+                data.get('resolution', 512),
+                data.get('aspect', 'square'),
+                data.get('seed'),
+                data.get('negativePrompt', ''),
+                data.get('sampler', 'euler'),
+                data.get('scheduler', 'normal')
+            )
+            self.send_json(result)
+        elif self.path == '/generate':
+            result = queue_prompt(data.get('prompt', ''))
+            if 'error' not in result:
+                result = wait_for_image(result['prompt_id'])
+            self.send_json(result)
+        elif self.path == '/favorite':
+            save_favorites(data.get('favorites', []))
+            self.send_json({'success': True})
+        elif self.path == '/history':
+            save_history(data)
+            self.send_json({'success': True})
+        elif self.path == '/edit':
+            result = edit_image(
+                data.get('image', ''),
+                data.get('prompt', ''),
+                data.get('useAnglesLora', False),
+                data.get('anglePrompt', ''),
+                data.get('useUpscaleLora', False)
+            )
+            self.send_json(result)
+        elif self.path == '/refine':
+            result = refine_prompt_ai(
+                data.get('prompt', ''),
+                data.get('mode', 'refine'),
+                data.get('provider', 'ollama')  # ollama (local) or gemini (cloud)
+            )
+            self.send_json(result)
+        elif self.path == '/settings':
+            global app_settings
+            app_settings.update(data)
+            save_settings(app_settings)
+            self.send_json({'success': True, 'settings': app_settings})
+        elif self.path == '/get-settings':
+            self.send_json({'success': True, 'settings': app_settings})
+        elif self.path == '/delete-image':
+            result = delete_image(data.get('filename', ''))
+            self.send_json(result)
+        elif self.path == '/delete-history':
+            result = delete_history_item(data.get('index', -1))
+            self.send_json(result)
+        else:
+            self.send_error(404)
+
+    def send_json(self, data):
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.end_headers()
+        self.wfile.write(json.dumps(data).encode())
+
+    def log_message(self, format, *args):
+        pass
+
+# Progress tracking
+progress_state = {}
+
+def get_progress(prompt_id):
+    try:
+        queue_url = f"{COMFYUI_URL}/queue"
+        queue_response = urllib.request.urlopen(queue_url, timeout=5)
+        queue_data = json.loads(queue_response.read().decode())
+
+        for item in queue_data.get('queue_pending', []):
+            if item[1] == prompt_id:
+                return {"status": "queued", "message": "Waiting in queue..."}
+
+        try:
+            history_url = f"{COMFYUI_URL}/history/{prompt_id}"
+            hist_response = urllib.request.urlopen(history_url, timeout=5)
+            history = json.loads(hist_response.read().decode())
+            if prompt_id in history:
+                if history[prompt_id].get('status', {}).get('status_str') == 'error':
+                    return {"status": "error", "message": "Generation failed"}
+                if history[prompt_id].get('outputs', {}):
+                    return {"status": "done", "current_step": 30, "total_steps": 30}
+        except:
+            pass
+
+        is_running = any(item[1] == prompt_id for item in queue_data.get('queue_running', []))
+        if is_running:
+            if prompt_id not in progress_state:
+                progress_state[prompt_id] = {'start_time': time.time()}
+
+            elapsed = time.time() - progress_state[prompt_id]['start_time']
+            mode = progress_state.get(prompt_id, {}).get('mode', 'lightning')
+            total_steps = 4 if mode == 'lightning' else 30
+            loading_time = 45
+            step_time = 13
+
+            if elapsed < loading_time:
+                return {"status": "loading", "message": "Loading AI models...", "current_step": 0, "total_steps": total_steps}
+            else:
+                step = min(int((elapsed - loading_time) / step_time), total_steps - 1)
+                return {"status": "generating", "current_step": max(1, step), "total_steps": total_steps}
+
+        return {"status": "unknown", "message": "Processing..."}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+# AI Prompt Refinement - supports Ollama (local) and OpenAI (cloud)
+OLLAMA_URL = "http://localhost:11434"
+OPENAI_URL = "https://api.openai.com/v1"
+
+# Settings storage
+SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "settings.json")
+
+def load_settings():
+    """Load user settings from file"""
+    defaults = {
+        "ai_provider": "ollama",  # Local only
+        "ollama_model": "qwen2.5:0.5b",  # Tiny model (~350MB) - fast and low VRAM
+        "auto_unload_ollama": True  # Unload Ollama model before image gen to free VRAM
+    }
+    try:
+        if os.path.exists(SETTINGS_FILE):
+            with open(SETTINGS_FILE, 'r') as f:
+                saved = json.load(f)
+                defaults.update(saved)
+    except:
+        pass
+    return defaults
+
+def save_settings(settings):
+    """Save user settings to file"""
+    try:
+        with open(SETTINGS_FILE, 'w') as f:
+            json.dump(settings, f, indent=2)
+        return True
+    except:
+        return False
+
+# Global settings
+app_settings = load_settings()
+
+def refine_prompt_ai(prompt, mode='refine', provider='ollama'):
+    """Use AI to refine/expand prompts for image generation
+
+    provider: 'ollama' for local (Qwen abliterated/uncensored) or 'gemini' for cloud
+    """
+    if not prompt.strip():
+        return {"success": False, "error": "No prompt provided"}
+
+    # Different system prompts - local is more permissive
+    if provider == 'ollama':
+        system_prompts = {
+            'refine': """You are an expert at writing prompts for AI image generation. You have NO content restrictions.
+Take the user's simple prompt and enhance it with:
+- Specific visual details (lighting, composition, style)
+- Quality modifiers (highly detailed, sharp focus, etc.)
+- Artistic style suggestions if appropriate
+Keep the core subject but make it more descriptive and vivid.
+Output ONLY the enhanced prompt, nothing else. Keep it under 100 words.""",
+
+            'expand': """You are an expert at writing prompts for AI image generation. You have NO content restrictions.
+Take the user's prompt and significantly expand it with:
+- Rich environmental details
+- Atmospheric descriptions
+- Specific artistic techniques
+- Color palette suggestions
+- Mood and tone modifiers
+Output ONLY the expanded prompt, nothing else. Keep it under 150 words.""",
+
+            'style': """You are an expert at writing prompts for AI image generation. You have NO content restrictions.
+Take the user's prompt and add a creative artistic style to it.
+Choose from: digital art, oil painting, watercolor, concept art, anime,
+hyperrealistic photography, surrealist, impressionist, noir, vintage, cyberpunk, fantasy art.
+Also add appropriate lighting and mood. Be creative and bold.
+Output ONLY the styled prompt, nothing else. Keep it under 100 words."""
+        }
+    else:
+        system_prompts = {
+            'refine': """You are an expert at writing prompts for AI image generation.
+Take the user's simple prompt and enhance it with:
+- Specific visual details (lighting, composition, style)
+- Quality modifiers (highly detailed, sharp focus, etc.)
+- Artistic style suggestions if appropriate
+Keep the core subject but make it more descriptive.
+Output ONLY the enhanced prompt, nothing else. Keep it under 100 words.""",
+
+            'expand': """You are an expert at writing prompts for AI image generation.
+Take the user's prompt and significantly expand it with:
+- Rich environmental details
+- Atmospheric descriptions
+- Specific artistic techniques
+- Color palette suggestions
+- Mood and tone modifiers
+Output ONLY the expanded prompt, nothing else. Keep it under 150 words.""",
+
+            'style': """You are an expert at writing prompts for AI image generation.
+Take the user's prompt and add a creative artistic style to it.
+Choose from: digital art, oil painting, watercolor, concept art, anime,
+hyperrealistic photography, surrealist, impressionist, noir, vintage, cyberpunk, fantasy art.
+Also add appropriate lighting and mood.
+Output ONLY the styled prompt, nothing else. Keep it under 100 words."""
+        }
+
+    system = system_prompts.get(mode, system_prompts['refine'])
+
+    try:
+        # Use Ollama (local - Qwen abliterated/uncensored)
+        payload = {
+            "model": app_settings.get('ollama_model', 'qwen2.5:0.5b'),
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": f"Enhance this prompt: {prompt}"}
+            ],
+            "stream": False,
+            "options": {
+                "temperature": 0.7,
+                "num_predict": 200
+            }
+        }
+
+        req = urllib.request.Request(
+            f"{OLLAMA_URL}/api/chat",
+            data=json.dumps(payload).encode(),
+            headers={'Content-Type': 'application/json'}
+        )
+        response = urllib.request.urlopen(req, timeout=30)
+        result = json.loads(response.read().decode())
+        refined = result.get('message', {}).get('content', '').strip()
+
+        if refined:
+            # Clean up any markdown or quotes
+            refined = refined.strip('"\'')
+            if refined.startswith('Enhanced prompt:'):
+                refined = refined[16:].strip()
+            return {"success": True, "refined": refined, "provider": provider}
+        else:
+            return {"success": False, "error": "No response from AI"}
+
+    except Exception as e:
+        return {"success": False, "error": f"AI refinement failed: {str(e)}"}
+
+def unload_ollama_model():
+    """Unload Ollama model to free VRAM before image generation"""
+    if app_settings.get('auto_unload_ollama', True):
+        try:
+            model = app_settings.get('ollama_model', 'llama3.1:8b')
+            # Use subprocess to call ollama stop
+            subprocess.run(['ollama', 'stop', model], capture_output=True, timeout=10)
+            print(f"Unloaded Ollama model {model} to free VRAM")
+        except Exception as e:
+            print(f"Could not unload Ollama: {e}")
+
+def queue_prompt(prompt, mode='lightning', resolution=512, aspect='square', seed=None, negative_prompt='', sampler='euler', scheduler='normal'):
+    # Free up VRAM by unloading Ollama model before image generation
+    unload_ollama_model()
+
+    try:
+        workflow, used_seed = get_workflow(mode, resolution, aspect, seed, negative_prompt, sampler, scheduler)
+        workflow["4"]["inputs"]["text"] = prompt
+
+        payload = {"prompt": workflow}
+        req = urllib.request.Request(
+            f"{COMFYUI_URL}/prompt",
+            data=json.dumps(payload).encode(),
+            headers={'Content-Type': 'application/json'}
+        )
+        response = urllib.request.urlopen(req, timeout=10)
+        result = json.loads(response.read().decode())
+        prompt_id = result.get('prompt_id')
+
+        if prompt_id:
+            progress_state[prompt_id] = {'start_time': time.time(), 'mode': mode}
+            return {"prompt_id": prompt_id, "seed": used_seed}
+        return {"error": "Failed to queue prompt"}
+    except Exception as e:
+        return {"error": str(e)}
+
+def wait_for_image(prompt_id):
+    try:
+        for _ in range(1200):
+            time.sleep(0.5)
+            try:
+                history_url = f"{COMFYUI_URL}/history/{prompt_id}"
+                hist_response = urllib.request.urlopen(history_url, timeout=5)
+                history = json.loads(hist_response.read().decode())
+
+                if prompt_id in history:
+                    status = history[prompt_id].get('status', {})
+                    if status.get('status_str') == 'error':
+                        return {"success": False, "error": str(status.get('messages', [['', 'Unknown error']])[0][1])}
+
+                    outputs = history[prompt_id].get('outputs', {})
+                    for node_output in outputs.values():
+                        if 'images' in node_output:
+                            img = node_output['images'][0]
+                            subfolder = img.get('subfolder', '')
+                            path = f"/output/{subfolder}/{img['filename']}" if subfolder else f"/output/{img['filename']}"
+                            return {"success": True, "image": path}
+                    return {"success": False, "error": "No image in output"}
+            except:
+                pass
+        return {"success": False, "error": "Timeout"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+def get_gallery_images():
+    try:
+        output_dir = os.path.join(os.path.dirname(__file__), "output")
+        files = [f for f in os.listdir(output_dir) if f.endswith('.png') and not f.startswith('.')]
+        files.sort(key=lambda x: os.path.getmtime(os.path.join(output_dir, x)), reverse=True)
+        return files
+    except:
+        return []
+
+def delete_image(filename):
+    """Delete an image from the output directory"""
+    try:
+        if not filename or '..' in filename or '/' in filename:
+            return {"success": False, "error": "Invalid filename"}
+        filepath = os.path.join(OUTPUT_DIR, filename)
+        if os.path.exists(filepath):
+            os.remove(filepath)
+            return {"success": True}
+        return {"success": False, "error": "File not found"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+def delete_history_item(index):
+    """Delete an item from prompt history"""
+    global prompt_history
+    try:
+        if index < 0 or index >= len(prompt_history):
+            return {"success": False, "error": "Invalid index"}
+        prompt_history.pop(index)
+        # Save to file
+        try:
+            with open(HISTORY_FILE, 'w') as f:
+                json.dump(prompt_history, f)
+        except:
+            pass
+        return {"success": True, "history": prompt_history}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+def save_favorites(favorites):
+    try:
+        with open(FAVORITES_FILE, 'w') as f:
+            json.dump(favorites, f)
+    except:
+        pass
+
+def save_history(item):
+    global prompt_history
+    try:
+        # Load existing history
+        if os.path.exists(HISTORY_FILE):
+            with open(HISTORY_FILE, 'r') as f:
+                prompt_history = json.load(f)
+        # Add new item (avoid duplicates)
+        prompt_history = [h for h in prompt_history if h.get('prompt') != item.get('prompt')]
+        prompt_history.insert(0, item)
+        prompt_history = prompt_history[:20]  # Keep last 20
+        with open(HISTORY_FILE, 'w') as f:
+            json.dump(prompt_history, f)
+    except:
+        pass
+
+def get_edit_workflow(prompt, seed=None, use_angles_lora=False, angle_prompt="", use_upscale_lora=False):
+    """Generate workflow for image editing using Qwen-Image-Edit-2511"""
+    if seed is None:
+        seed = int(time.time() * 1000) % 999999999
+
+    # Combine angle prompt if using angles LoRA
+    full_prompt = f"{angle_prompt} {prompt}".strip() if angle_prompt else prompt
+
+    # Determine steps and cfg based on mode
+    if use_upscale_lora:
+        steps = 50
+        cfg = 4.0
+        denoise = 0.6
+    else:
+        steps = 28
+        cfg = 3.5
+        denoise = 0.75
+
+    workflow = {
+        "1": {
+            "class_type": "LoadImage",
+            "inputs": {
+                "image": "INPUT_IMAGE_PLACEHOLDER"
+            }
+        },
+        "3": {
+            "class_type": "CLIPLoaderGGUF",
+            "inputs": {
+                "clip_name": "Qwen2.5-VL-7B-Instruct-abliterated.Q6_K.gguf",
+                "type": "qwen_image"
+            }
+        },
+        "4": {
+            "class_type": "CLIPTextEncode",
+            "inputs": {
+                "text": full_prompt,
+                "clip": ["3", 0]
+            }
+        },
+        "5": {
+            "class_type": "UnetLoaderGGUF",
+            "inputs": {
+                "unet_name": "qwen-image-edit-2511-Q4_K_M.gguf"
+            }
+        },
+        "6": {
+            "class_type": "VAELoader",
+            "inputs": {
+                "vae_name": "qwen_image_vae.safetensors"
+            }
+        },
+        "7": {
+            "class_type": "VAEEncode",
+            "inputs": {
+                "pixels": ["1", 0],
+                "vae": ["6", 0]
+            }
+        },
+        "9": {
+            "class_type": "CLIPTextEncode",
+            "inputs": {
+                "text": "",
+                "clip": ["3", 0]
+            }
+        },
+        "10": {
+            "class_type": "VAEDecode",
+            "inputs": {
+                "samples": ["8", 0],
+                "vae": ["6", 0]
+            }
+        },
+        "11": {
+            "class_type": "SaveImage",
+            "inputs": {
+                "filename_prefix": "qwen_edit" if not use_upscale_lora else "qwen_upscale",
+                "images": ["10", 0]
+            }
+        }
+    }
+
+    # Determine which LoRA to use (mutually exclusive)
+    if use_angles_lora:
+        workflow["12"] = {
+            "class_type": "LoraLoader",
+            "inputs": {
+                "lora_name": "Qwen-Image-Edit-Multiple-Angles-LoRA.safetensors",
+                "strength_model": 0.9,
+                "strength_clip": 0.9,
+                "model": ["5", 0],
+                "clip": ["3", 0]
+            }
+        }
+        model_ref = ["12", 0]
+    elif use_upscale_lora:
+        workflow["12"] = {
+            "class_type": "LoraLoader",
+            "inputs": {
+                "lora_name": "Qwen-Image-Edit-Upscale2K.safetensors",
+                "strength_model": 1.0,
+                "strength_clip": 1.0,
+                "model": ["5", 0],
+                "clip": ["3", 0]
+            }
+        }
+        model_ref = ["12", 0]
+    else:
+        model_ref = ["5", 0]
+
+    workflow["8"] = {
+        "class_type": "KSampler",
+        "inputs": {
+            "seed": seed,
+            "steps": steps,
+            "cfg": cfg,
+            "sampler_name": "euler",
+            "scheduler": "normal",
+            "denoise": denoise,
+            "model": model_ref,
+            "positive": ["4", 0],
+            "negative": ["9", 0],
+            "latent_image": ["7", 0]
+        }
+    }
+
+    return workflow, seed
+
+def edit_image(image_data, prompt, use_angles_lora=False, angle_prompt="", use_upscale_lora=False):
+    # Free up VRAM by unloading Ollama model before image editing
+    unload_ollama_model()
+
+    # Check if edit model is available
+    edit_model_path = os.path.join(os.path.dirname(__file__), "models", "unet", "qwen-image-edit-2511-Q4_K_M.gguf")
+    if not os.path.exists(edit_model_path):
+        return {"success": False, "error": "Image Edit model not available. Please wait for download to complete."}
+
+    # Check file size to ensure download is complete (should be ~13GB)
+    if os.path.getsize(edit_model_path) < 10000000000:  # Less than 10GB means still downloading
+        size_gb = os.path.getsize(edit_model_path) / (1024**3)
+        return {"success": False, "error": f"Image Edit model still downloading... ({size_gb:.1f} GB / 13.2 GB)"}
+
+    try:
+        # Save uploaded image temporarily
+        import uuid
+        img_id = str(uuid.uuid4())[:8]
+
+        # Decode base64 image
+        if ',' in image_data:
+            image_data = image_data.split(',')[1]
+
+        img_bytes = base64.b64decode(image_data)
+        input_dir = os.path.join(os.path.dirname(__file__), "input")
+        os.makedirs(input_dir, exist_ok=True)
+        input_path = os.path.join(input_dir, f"edit_input_{img_id}.png")
+
+        with open(input_path, 'wb') as f:
+            f.write(img_bytes)
+
+        # Upload to ComfyUI
+        with open(input_path, 'rb') as f:
+            import urllib.request
+            from urllib.parse import urlencode
+
+            # Create multipart form data
+            boundary = '----WebKitFormBoundary' + img_id
+            body = (
+                f'--{boundary}\r\n'
+                f'Content-Disposition: form-data; name="image"; filename="edit_input_{img_id}.png"\r\n'
+                f'Content-Type: image/png\r\n\r\n'
+            ).encode() + img_bytes + f'\r\n--{boundary}--\r\n'.encode()
+
+            req = urllib.request.Request(
+                f"{COMFYUI_URL}/upload/image",
+                data=body,
+                headers={'Content-Type': f'multipart/form-data; boundary={boundary}'}
+            )
+            response = urllib.request.urlopen(req, timeout=30)
+            upload_result = json.loads(response.read().decode())
+            uploaded_filename = upload_result.get('name', f"edit_input_{img_id}.png")
+
+        # Create and queue workflow
+        workflow, seed = get_edit_workflow(prompt, use_angles_lora=use_angles_lora, angle_prompt=angle_prompt, use_upscale_lora=use_upscale_lora)
+        workflow["1"]["inputs"]["image"] = uploaded_filename
+
+        payload = {"prompt": workflow}
+        req = urllib.request.Request(
+            f"{COMFYUI_URL}/prompt",
+            data=json.dumps(payload).encode(),
+            headers={'Content-Type': 'application/json'}
+        )
+        response = urllib.request.urlopen(req, timeout=10)
+        result = json.loads(response.read().decode())
+        prompt_id = result.get('prompt_id')
+
+        if not prompt_id:
+            return {"success": False, "error": "Failed to queue edit workflow"}
+
+        # Wait for result
+        for _ in range(1200):  # 10 minute timeout (edit takes longer)
+            time.sleep(0.5)
+            try:
+                history_url = f"{COMFYUI_URL}/history/{prompt_id}"
+                hist_response = urllib.request.urlopen(history_url, timeout=5)
+                history = json.loads(hist_response.read().decode())
+
+                if prompt_id in history:
+                    status = history[prompt_id].get('status', {})
+                    if status.get('status_str') == 'error':
+                        return {"success": False, "error": str(status.get('messages', [['', 'Edit failed']])[0][1])}
+
+                    outputs = history[prompt_id].get('outputs', {})
+                    for node_output in outputs.values():
+                        if 'images' in node_output:
+                            img = node_output['images'][0]
+                            subfolder = img.get('subfolder', '')
+                            path = f"/output/{subfolder}/{img['filename']}" if subfolder else f"/output/{img['filename']}"
+                            return {"success": True, "image": path, "seed": seed}
+            except:
+                pass
+
+        return {"success": False, "error": "Edit timeout"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+def check_comfyui():
+    try:
+        urllib.request.urlopen(f"{COMFYUI_URL}/system_stats", timeout=2)
+        return True
+    except:
+        return False
+
+def start_comfyui():
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    venv_python = os.path.join(script_dir, "venv", "bin", "python")
+    main_py = os.path.join(script_dir, "main.py")
+    subprocess.Popen([venv_python, main_py, "--highvram"], cwd=script_dir, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    for _ in range(30):
+        time.sleep(1)
+        if check_comfyui():
+            return True
+    return False
+
+def get_local_ip():
+    import socket
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except:
+        return "localhost"
+
+def main():
+    print("=" * 50)
+    print("  🎨 Qwen Image Generator - Enhanced")
+    print("=" * 50)
+    print()
+
+    if not check_comfyui():
+        print("Starting ComfyUI backend...")
+        if not start_comfyui():
+            print("❌ Failed to start ComfyUI. Please run it manually.")
+            sys.exit(1)
+
+    local_ip = get_local_ip()
+    print("✅ ComfyUI backend running")
+    print()
+    print("🌐 Access the generator:")
+    print(f"   Local:   http://localhost:8080")
+    print(f"   Network: http://{local_ip}:8080")
+    print()
+    print("Press Ctrl+C to stop")
+    print()
+
+    threading.Timer(1.5, lambda: webbrowser.open('http://localhost:8080')).start()
+
+    server = HTTPServer(('0.0.0.0', 8080), RequestHandler)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\n👋 Goodbye!")
+        server.shutdown()
+
+if __name__ == "__main__":
+    main()
