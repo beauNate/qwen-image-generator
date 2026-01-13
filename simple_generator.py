@@ -321,6 +321,87 @@ HTML_PAGE = '''<!DOCTYPE html>
             animation: fadeInUp 0.4s var(--ease-out) 0.15s both;
         }
 
+        /* Connection Status */
+        .connection-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: var(--text-xs);
+            color: var(--text-quaternary);
+            margin-left: 8px;
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-quaternary);
+            transition: background 0.3s;
+        }
+        .status-dot.connected { background: var(--success); box-shadow: 0 0 6px var(--success); }
+        .status-dot.disconnected { background: var(--error); box-shadow: 0 0 6px var(--error); }
+        .status-dot.checking { background: var(--warning); animation: pulse 1s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+        .toast {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 250px;
+            max-width: 400px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            animation: toastIn 0.3s var(--ease-out);
+            pointer-events: auto;
+        }
+        .toast.hiding {
+            animation: toastOut 0.3s var(--ease-out) forwards;
+        }
+        .toast-icon {
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+        .toast-content {
+            flex: 1;
+        }
+        .toast-title {
+            font-weight: 600;
+            font-size: var(--text-sm);
+            color: var(--text-primary);
+        }
+        .toast-message {
+            font-size: var(--text-xs);
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+        .toast.success { border-left: 3px solid var(--success); }
+        .toast.error { border-left: 3px solid var(--error); }
+        .toast.warning { border-left: 3px solid var(--warning); }
+        .toast.info { border-left: 3px solid var(--accent); }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(100px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes toastOut {
+            from { opacity: 1; transform: translateX(0); }
+            to { opacity: 0; transform: translateX(100px); }
+        }
+
         /* Glass Card Base */
         .glass {
             background: var(--glass-bg);
@@ -1454,8 +1535,11 @@ HTML_PAGE = '''<!DOCTYPE html>
     </style>
 </head>
 <body>
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
     <h1>🎨 Qwen Image Generator</h1>
-    <p class="subtitle">Powered by Qwen-Image-2512 on your Mac</p>
+    <p class="subtitle">Powered by Qwen-Image-2512 on your Mac <span class="connection-status"><span id="statusDot" class="status-dot checking"></span><span id="statusText">Checking...</span></span></p>
 
     <div class="tabs">
         <button class="tab active" onclick="showTab('generate')">✨ Generate</button>
@@ -1578,6 +1662,7 @@ HTML_PAGE = '''<!DOCTYPE html>
 
             <div class="btn-row">
                 <button id="generateBtn" onclick="generate()">✨ Generate</button>
+                <button id="cancelBtn" onclick="cancelGeneration()" style="display:none; background:var(--error);">⏹️ Cancel</button>
                 <button class="btn-secondary" id="addToQueueBtn" onclick="addToQueue()">📋 Add to Queue</button>
                 <button class="btn-secondary" id="regenerateBtn" onclick="regenerate()" disabled>🔄 Regenerate</button>
                 <button class="btn-secondary" id="compareBtn" onclick="toggleSplitCompare()">⚔️ Compare</button>
@@ -1833,13 +1918,68 @@ HTML_PAGE = '''<!DOCTYPE html>
         let favorites = JSON.parse(localStorage.getItem('qwen_favorites') || '[]');
         let promptHistory = JSON.parse(localStorage.getItem('qwen_history') || '[]');
 
+        // Connection Status Check
+        async function checkConnection() {
+            const dot = document.getElementById('statusDot');
+            const text = document.getElementById('statusText');
+            try {
+                const response = await fetch('/health', { timeout: 3000 });
+                const data = await response.json();
+                if (data.comfyui) {
+                    dot.className = 'status-dot connected';
+                    text.textContent = 'Connected';
+                } else {
+                    dot.className = 'status-dot disconnected';
+                    text.textContent = 'ComfyUI offline';
+                }
+            } catch (e) {
+                dot.className = 'status-dot disconnected';
+                text.textContent = 'Disconnected';
+            }
+        }
+        // Check on load and every 30 seconds
+        checkConnection();
+        setInterval(checkConnection, 30000);
+
+        // Toast Notification System
+        function showToast(title, message = '', type = 'info', duration = 3000) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+
+            const icons = {
+                success: '✅',
+                error: '❌',
+                warning: '⚠️',
+                info: 'ℹ️'
+            };
+
+            toast.innerHTML = `
+                <span class="toast-icon">${icons[type] || icons.info}</span>
+                <div class="toast-content">
+                    <div class="toast-title">${title}</div>
+                    ${message ? `<div class="toast-message">${message}</div>` : ''}
+                </div>
+            `;
+
+            container.appendChild(toast);
+
+            // Auto-remove after duration
+            setTimeout(() => {
+                toast.classList.add('hiding');
+                setTimeout(() => toast.remove(), 300);
+            }, duration);
+
+            return toast;
+        }
+
         // Generation Queue
         let generationQueue = [];
         let queueProcessing = false;
 
         function addToQueue() {
             const prompt = document.getElementById('prompt').value.trim();
-            if (!prompt) { alert('Please enter a prompt!'); return; }
+            if (!prompt) { showToast('Missing Prompt', 'Please enter a prompt first', 'warning'); return; }
 
             const mode = document.getElementById('mode').value;
             const resolution = parseInt(document.getElementById('resolution').value);
@@ -1865,6 +2005,7 @@ HTML_PAGE = '''<!DOCTYPE html>
 
             updateQueueUI();
             document.getElementById('prompt').value = '';
+            showToast('Added to Queue', `${generationQueue.length} item(s) in queue`, 'success');
         }
 
         function updateQueueUI() {
@@ -2060,7 +2201,7 @@ HTML_PAGE = '''<!DOCTYPE html>
             const promptEl = document.getElementById('prompt');
             const prompt = promptEl.value.trim();
             if (!prompt) {
-                alert('Enter a prompt first');
+                showToast('Missing Prompt', 'Enter a prompt first', 'warning');
                 return;
             }
 
@@ -2084,11 +2225,12 @@ HTML_PAGE = '''<!DOCTYPE html>
 
                 if (data.success) {
                     promptEl.value = data.refined;
+                    showToast('Prompt Enhanced', 'Your prompt has been refined', 'success');
                 } else {
-                    alert('Refinement failed: ' + (data.error || 'Unknown error'));
+                    showToast('Refinement Failed', data.error || 'Unknown error', 'error');
                 }
             } catch (e) {
-                alert('Error: ' + e.message);
+                showToast('Error', e.message, 'error');
             }
 
             isRefining = false;
@@ -2207,7 +2349,7 @@ HTML_PAGE = '''<!DOCTYPE html>
 
         async function generate() {
             const prompt = document.getElementById('prompt').value.trim();
-            if (!prompt) { alert('Please enter a prompt!'); return; }
+            if (!prompt) { showToast('Missing Prompt', 'Please enter a prompt first', 'warning'); return; }
 
             const mode = document.getElementById('mode').value;
             const resolution = parseInt(document.getElementById('resolution').value);
@@ -2230,6 +2372,7 @@ HTML_PAGE = '''<!DOCTYPE html>
 
             btn.disabled = true;
             btn.textContent = '⏳ Generating...';
+            document.getElementById('cancelBtn').style.display = 'inline-flex';
             status.style.display = 'block';
             status.className = 'generating';
             statusText.textContent = '🚀 Starting...';
@@ -2270,18 +2413,22 @@ HTML_PAGE = '''<!DOCTYPE html>
                         '</div>' +
                         '<div class="result-info">Seed: <span class="seed-display" onclick="copySeed()" title="Click to copy">' + lastSeed + '</span></div>';
                     document.getElementById('regenerateBtn').disabled = false;
+                    showToast('Image Generated', 'Your image is ready', 'success');
                 } else {
                     status.className = 'error';
                     statusText.textContent = '❌ ' + data.error;
+                    showToast('Generation Failed', data.error, 'error');
                 }
             } catch (e) {
                 clearInterval(progressInterval);
                 status.className = 'error';
                 statusText.textContent = '❌ ' + e.message;
+                showToast('Error', e.message, 'error');
             } finally {
                 // Always reset button state
                 btn.disabled = false;
                 btn.textContent = '✨ Generate';
+                document.getElementById('cancelBtn').style.display = 'none';
             }
         }
 
@@ -2290,9 +2437,25 @@ HTML_PAGE = '''<!DOCTYPE html>
             generate();
         }
 
+        async function cancelGeneration() {
+            if (!currentPromptId) return;
+            try {
+                await fetch('/interrupt', { method: 'POST' });
+                clearInterval(progressInterval);
+                currentPromptId = null;
+                document.getElementById('status').className = 'error';
+                document.getElementById('statusText').textContent = '⏹️ Cancelled';
+                document.getElementById('generateBtn').disabled = false;
+                document.getElementById('generateBtn').textContent = '✨ Generate';
+                document.getElementById('cancelBtn').style.display = 'none';
+            } catch (e) {
+                console.error('Cancel failed:', e);
+            }
+        }
+
         function copySeed() {
             navigator.clipboard.writeText(lastSeed.toString());
-            alert('Seed copied: ' + lastSeed);
+            showToast('Seed Copied', `Seed: ${lastSeed}`, 'success');
         }
 
         // Split Compare Mode Functions
@@ -2321,7 +2484,7 @@ HTML_PAGE = '''<!DOCTYPE html>
 
         async function generateSplit(side) {
             const prompt = document.getElementById('prompt' + side).value.trim();
-            if (!prompt) { alert('Please enter a prompt for side ' + side + '!'); return; }
+            if (!prompt) { showToast('Missing Prompt', `Please enter a prompt for side ${side}`, 'warning'); return; }
 
             const mode = document.getElementById('mode').value;
             const resolution = parseInt(document.getElementById('resolution').value);
@@ -2364,7 +2527,7 @@ HTML_PAGE = '''<!DOCTYPE html>
         // Compare function - generates same prompt with Lightning vs Normal
         async function compareGenerate() {
             const prompt = document.getElementById('prompt').value.trim();
-            if (!prompt) { alert('Please enter a prompt!'); return; }
+            if (!prompt) { showToast('Missing Prompt', 'Please enter a prompt first', 'warning'); return; }
 
             const resolution = parseInt(document.getElementById('resolution').value);
             const aspect = document.getElementById('aspect').value;
@@ -2565,11 +2728,12 @@ HTML_PAGE = '''<!DOCTYPE html>
                 const data = await response.json();
                 if (data.success) {
                     loadGallery();
+                    showToast('Image Deleted', 'The image has been removed', 'success');
                 } else {
-                    alert('Failed to delete: ' + data.error);
+                    showToast('Delete Failed', data.error, 'error');
                 }
             } catch (e) {
-                alert('Error deleting image');
+                showToast('Error', 'Failed to delete image', 'error');
             }
         }
 
@@ -2692,7 +2856,7 @@ HTML_PAGE = '''<!DOCTYPE html>
         }
 
         async function editImage() {
-            if (!uploadedImageData) { alert('Please upload an image first'); return; }
+            if (!uploadedImageData) { showToast('No Image', 'Please upload an image first', 'warning'); return; }
             let editPrompt = document.getElementById('editPrompt').value.trim();
 
             const useAnglesLora = currentEditMode === 'angles';
@@ -2709,7 +2873,7 @@ HTML_PAGE = '''<!DOCTYPE html>
                     editPrompt = upscaleTrigger + ' ' + editPrompt;  // Upscale + modifications
                 }
             } else if (!editPrompt && !useAnglesLora) {
-                alert('Please describe the changes');
+                showToast('Missing Description', 'Please describe the changes', 'warning');
                 return;
             } else if (!editPrompt && useAnglesLora) {
                 editPrompt = anglePrompt;  // Camera angle only
@@ -2750,6 +2914,14 @@ HTML_PAGE = '''<!DOCTYPE html>
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') closeModal();
+            // Cmd+Enter (Mac) or Ctrl+Enter (Windows) to generate
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                const generateBtn = document.getElementById('generateBtn');
+                if (!generateBtn.disabled) {
+                    generate();
+                }
+            }
         });
 
         // Settings - local only
@@ -2801,6 +2973,13 @@ class RequestHandler(SimpleHTTPRequestHandler):
             self.send_header('Content-type', 'application/json')
             self.end_headers()
             self.wfile.write(json.dumps(images).encode())
+        elif self.path == '/health':
+            # Check ComfyUI connection status
+            comfyui_ok = check_comfyui()
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({'comfyui': comfyui_ok}).encode())
         else:
             self.send_error(404)
 
@@ -2861,6 +3040,14 @@ class RequestHandler(SimpleHTTPRequestHandler):
         elif self.path == '/delete-history':
             result = delete_history_item(data.get('index', -1))
             self.send_json(result)
+        elif self.path == '/interrupt':
+            # Forward interrupt to ComfyUI
+            try:
+                req = urllib.request.Request(f"{COMFYUI_URL}/interrupt", method='POST')
+                urllib.request.urlopen(req, timeout=5)
+                self.send_json({'success': True})
+            except Exception as e:
+                self.send_json({'success': False, 'error': str(e)})
         else:
             self.send_error(404)
 
