@@ -948,6 +948,42 @@ HTML_PAGE = '''<!DOCTYPE html>
             transform: translateY(-2px);
         }
 
+        .gallery-item .gallery-info {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+            padding: var(--space-6) var(--space-2) var(--space-2);
+            opacity: 0;
+            transition: opacity var(--duration-base) var(--ease-out);
+        }
+
+        .gallery-item:hover .gallery-info {
+            opacity: 1;
+        }
+
+        .gallery-info-text {
+            font-size: var(--text-xs);
+            color: var(--text-secondary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .gallery-empty {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: var(--space-8);
+            color: var(--text-tertiary);
+        }
+
+        .gallery-count {
+            font-size: var(--text-sm);
+            color: var(--text-quaternary);
+            margin-left: var(--space-2);
+        }
+
         /* Modal */
         @keyframes modalIn {
             from { opacity: 0; }
@@ -1968,7 +2004,8 @@ HTML_PAGE = '''<!DOCTYPE html>
     <!-- Gallery Tab -->
     <div id="tab-gallery" class="tab-content">
         <div class="filter-tabs">
-            <div class="filter-tab active" onclick="filterGallery('all')">All</div>
+            <div class="filter-tab active" onclick="filterGallery('all')">All <span id="galleryCount" class="gallery-count"></span></div>
+            <div class="filter-tab" onclick="filterGallery('recent')">🕐 Recent</div>
             <div class="filter-tab" onclick="filterGallery('favorites')">⭐ Favorites</div>
             <div class="filter-tab" onclick="filterGallery('lightning')">⚡ Lightning</div>
             <div class="filter-tab" onclick="filterGallery('normal')">🎨 Normal</div>
@@ -2910,6 +2947,7 @@ HTML_PAGE = '''<!DOCTYPE html>
         let compareMode = false;
         let compareSlot1 = null;
         let compareSlot2 = null;
+        let galleryData = [];
 
         function getImageType(img) {
             if (img.includes('edit')) return 'edit';
@@ -2918,25 +2956,53 @@ HTML_PAGE = '''<!DOCTYPE html>
             return 'lightning';
         }
 
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        function formatRelativeTime(timestamp) {
+            const now = Date.now() / 1000;
+            const diff = now - timestamp;
+            if (diff < 60) return 'Just now';
+            if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+            if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+            if (diff < 604800) return Math.floor(diff / 86400) + 'd ago';
+            return new Date(timestamp * 1000).toLocaleDateString();
+        }
+
         async function loadGallery() {
             try {
                 const response = await fetch('/gallery');
-                const images = await response.json();
+                galleryData = await response.json();
                 const gallery = document.getElementById('gallery');
-                gallery.innerHTML = images.map(img => {
+                const countEl = document.getElementById('galleryCount');
+                if (countEl) countEl.textContent = '(' + galleryData.length + ')';
+
+                if (galleryData.length === 0) {
+                    gallery.innerHTML = '<div class="gallery-empty">No images yet. Generate some!</div>';
+                    return;
+                }
+
+                gallery.innerHTML = galleryData.map(item => {
+                    const img = item.filename;
                     const type = getImageType(img);
                     const q = String.fromCharCode(39);
-                    return '<div class="gallery-item" data-type="' + type + '" data-filename="' + img + '">' +
+                    const timeAgo = formatRelativeTime(item.timestamp);
+                    const size = formatFileSize(item.size);
+                    return '<div class="gallery-item" data-type="' + type + '" data-filename="' + img + '" data-timestamp="' + item.timestamp + '">' +
                         '<img src="/output/' + img + '" onclick="handleGalleryClick(' + q + img + q + ')">' +
                         '<div class="gallery-actions">' +
                         '<span class="favorite-star" onclick="event.stopPropagation(); toggleFavorite(' + q + img + q + ')">' + (favorites.includes(img) ? '⭐' : '☆') + '</span>' +
                         '<span class="delete-btn" onclick="event.stopPropagation(); deleteImage(' + q + img + q + ')">🗑️</span>' +
                         '</div>' +
                         '<div class="gallery-type-badge">' + (type === 'lightning' ? '⚡' : type === 'edit' ? '🖌️' : '🎨') + '</div>' +
+                        '<div class="gallery-info"><div class="gallery-info-text"><span>' + timeAgo + '</span><span>' + size + '</span></div></div>' +
                         '</div>';
                 }).join('');
             } catch (e) {
-                document.getElementById('gallery').innerHTML = '<p>Could not load gallery</p>';
+                document.getElementById('gallery').innerHTML = '<div class="gallery-empty">Could not load gallery</div>';
             }
         }
 
@@ -2951,12 +3017,39 @@ HTML_PAGE = '''<!DOCTYPE html>
         function filterGallery(filter) {
             document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
             event.target.classList.add('active');
+            const now = Date.now() / 1000;
+            const oneDayAgo = now - 86400;
+            let visibleCount = 0;
+
             document.querySelectorAll('.gallery-item').forEach(item => {
                 const imgName = item.dataset.filename;
-                if (filter === 'all') item.style.display = 'block';
-                else if (filter === 'favorites') item.style.display = favorites.includes(imgName) ? 'block' : 'none';
-                else item.style.display = item.dataset.type === filter ? 'block' : 'none';
+                const timestamp = parseFloat(item.dataset.timestamp);
+                let show = false;
+
+                if (filter === 'all') show = true;
+                else if (filter === 'recent') show = timestamp > oneDayAgo;
+                else if (filter === 'favorites') show = favorites.includes(imgName);
+                else show = item.dataset.type === filter;
+
+                item.style.display = show ? 'block' : 'none';
+                if (show) visibleCount++;
             });
+
+            // Show empty state if no matches
+            const gallery = document.getElementById('gallery');
+            const existingEmpty = gallery.querySelector('.gallery-empty');
+            if (existingEmpty) existingEmpty.remove();
+
+            if (visibleCount === 0) {
+                const emptyMsg = {
+                    'recent': 'No images from the last 24 hours',
+                    'favorites': 'No favorites yet. Click ⭐ to add some!',
+                    'lightning': 'No Lightning mode images',
+                    'normal': 'No Normal mode images',
+                    'edit': 'No edited images'
+                };
+                gallery.insertAdjacentHTML('beforeend', '<div class="gallery-empty">' + (emptyMsg[filter] || 'No images') + '</div>');
+            }
         }
 
         function enterCompareMode() {
@@ -3258,7 +3351,7 @@ class RequestHandler(SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps(result).encode())
         elif self.path == '/gallery':
-            images = get_gallery_images()
+            images = get_gallery_images_with_meta()
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
             self.end_headers()
@@ -3601,6 +3694,25 @@ def get_gallery_images():
         files = [f for f in os.listdir(output_dir) if f.endswith('.png') and not f.startswith('.')]
         files.sort(key=lambda x: os.path.getmtime(os.path.join(output_dir, x)), reverse=True)
         return files
+    except:
+        return []
+
+def get_gallery_images_with_meta():
+    """Get gallery images with metadata (timestamp, size)"""
+    try:
+        output_dir = os.path.join(os.path.dirname(__file__), "output")
+        files = [f for f in os.listdir(output_dir) if f.endswith('.png') and not f.startswith('.')]
+        result = []
+        for f in files:
+            filepath = os.path.join(output_dir, f)
+            stat = os.stat(filepath)
+            result.append({
+                'filename': f,
+                'timestamp': stat.st_mtime,
+                'size': stat.st_size
+            })
+        result.sort(key=lambda x: x['timestamp'], reverse=True)
+        return result
     except:
         return []
 
