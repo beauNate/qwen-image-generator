@@ -24,3 +24,12 @@ web_custom_versions/
 openapi.yaml
 filtered-openapi.yaml
 uv.lock
+
+# Qwen Image Generator specific
+*.png
+favorites.json
+prompt_history.json
+settings.json
+.claude/
+TEST_REPORT.md
+benchmark_gui.py

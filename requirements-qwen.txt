@@ -1,0 +1,41 @@
+# Qwen Image Generator Requirements
+# Install with: pip install -r requirements-qwen.txt
+
+# Core dependencies (most already in ComfyUI)
+Pillow>=9.0.0
+requests>=2.28.0
+
+# Optional: For prompt refinement with local AI
+# ollama  # Install separately: https://ollama.ai
+
+# ============================================
+# REQUIRED MODELS (download separately)
+# ============================================
+# Place these in ComfyUI's models/ directory
+
+# Text Encoders (models/text_encoders/):
+# - Qwen2.5-VL-7B-Instruct-UD-Q4_K_XL.gguf
+#   https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-GGUF
+
+# UNet/Diffusion Models (models/unet/):
+# - qwen-image-2512-Q4_K_M.gguf (main generation)
+# - qwen-image-edit-2511-Q4_K_M.gguf (image editing)
+#   https://huggingface.co/Qwen/Qwen-Image-GGUF
+
+# LoRAs (models/loras/):
+# - Qwen-Image-Lightning-4steps-V1.0.safetensors (fast generation)
+# - Qwen-Image-Edit-Upscale2K.safetensors (upscaling)
+# - Qwen-Image-Edit-Multiple-Angles-LoRA.safetensors (camera angles)
+#   https://huggingface.co/Qwen/Qwen-Image-LoRAs
+
+# VAE (models/vae/):
+# - qwen_image_vae.safetensors
+#   https://huggingface.co/Qwen/Qwen-Image-VAE
+
+# CLIP Vision (models/clip_vision/):
+# - mmproj-BF16.gguf or Qwen2.5-VL-7B-Instruct-abliterated.mmproj-Q8_0.gguf
+#   https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-GGUF
+
+# ============================================
+# Note: This app requires ComfyUI to be installed and running
+# See: https://github.com/comfyanonymous/ComfyUI
