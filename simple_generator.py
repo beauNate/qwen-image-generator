@@ -512,6 +512,8 @@ HTML_PAGE = '''<!DOCTYPE html>
             flex-wrap: wrap;
         }
         .option-group { flex: 1; min-width: 130px; }
+        .option-group label { display: block; margin-bottom: 4px; }
+        .option-group .option-hint { display: block; margin-bottom: 6px; }
 
         select {
             width: 100%;
@@ -725,6 +727,103 @@ HTML_PAGE = '''<!DOCTYPE html>
         .seed-display:hover {
             border-color: var(--accent);
             box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        /* Batch results grid */
+        .batch-results {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: var(--space-3);
+            margin-top: var(--space-3);
+        }
+
+        .batch-item {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            transition: all var(--duration-base) var(--ease-out);
+        }
+
+        .batch-item:hover {
+            border-color: var(--glass-border-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+        }
+
+        .batch-item img {
+            width: 100%;
+            aspect-ratio: 1;
+            object-fit: cover;
+            display: block;
+        }
+
+        .batch-item-actions {
+            display: flex;
+            gap: var(--space-1);
+            padding: var(--space-2);
+            justify-content: center;
+        }
+
+        .batch-seed {
+            font-size: var(--text-xs);
+            font-family: var(--font-mono);
+            color: var(--text-quaternary);
+            text-align: center;
+            padding-bottom: var(--space-2);
+        }
+
+        .btn-sm {
+            padding: var(--space-1) var(--space-2);
+            font-size: var(--text-xs);
+            border-radius: var(--radius-sm);
+        }
+
+        /* Batch progress indicator */
+        .batch-progress {
+            display: flex;
+            gap: var(--space-2);
+            margin-bottom: var(--space-3);
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .batch-progress-item {
+            display: flex;
+            align-items: center;
+            gap: var(--space-1);
+            padding: var(--space-1) var(--space-2);
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            font-size: var(--text-xs);
+            color: var(--text-tertiary);
+        }
+
+        .batch-progress-item.active {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: var(--accent-bg);
+        }
+
+        .batch-progress-item.done {
+            border-color: var(--success);
+            color: var(--success);
+            background: var(--success-bg);
+        }
+
+        .batch-progress-item .mini-progress {
+            width: 40px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .batch-progress-item .mini-progress-fill {
+            height: 100%;
+            background: var(--accent);
+            transition: width 0.3s ease;
         }
 
         /* Gallery - ALL items get animations */
@@ -1125,11 +1224,39 @@ HTML_PAGE = '''<!DOCTYPE html>
             backdrop-filter: blur(20px);
             border: 1px solid var(--glass-border);
             border-radius: var(--radius-lg);
-            max-height: 220px;
-            overflow-y: auto;
+            max-height: 320px;
+            overflow: hidden;
             display: none;
             z-index: 100;
             box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+        }
+        .history-search {
+            padding: var(--space-2) var(--space-3);
+            border-bottom: 1px solid var(--glass-border);
+            position: sticky;
+            top: 0;
+            background: rgba(25, 25, 40, 0.98);
+        }
+        .history-search input {
+            width: 100%;
+            padding: var(--space-2) var(--space-3);
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            color: var(--text-primary);
+            font-size: var(--text-sm);
+        }
+        .history-search input::placeholder { color: var(--text-quaternary); }
+        .history-search input:focus { outline: none; border-color: var(--accent); }
+        .history-list {
+            max-height: 260px;
+            overflow-y: auto;
+        }
+        .history-empty {
+            padding: var(--space-4);
+            text-align: center;
+            color: var(--text-quaternary);
+            font-size: var(--text-sm);
         }
 
         .history-dropdown.show {
@@ -1171,7 +1298,7 @@ HTML_PAGE = '''<!DOCTYPE html>
         .batch-label { font-size: var(--text-sm); color: var(--text-tertiary); }
 
         .batch-input {
-            width: 60px;
+            width: 80px !important;
             text-align: center;
             font-family: var(--font-mono);
         }
@@ -1580,14 +1707,19 @@ HTML_PAGE = '''<!DOCTYPE html>
                     </button>
                 </div>
             </div>
-            <!-- Prompt History -->
-            <div class="history-container">
-                <div class="history-btn" onclick="toggleHistory()">📜 Recent Prompts <span id="historyCount">(0)</span></div>
-                <div class="history-dropdown" id="historyDropdown"></div>
-            </div>
 
             <div class="advanced-toggle" onclick="toggleAdvanced()">▶ Advanced Options</div>
             <div class="advanced-section" id="advancedSection">
+                <!-- Prompt History -->
+                <div class="option-group" style="margin-bottom: var(--space-3);">
+                    <label>Prompt History</label>
+                    <span class="option-hint">Click to reuse a previous prompt</span>
+                    <div class="history-container" style="margin-top: var(--space-1); display: inline-block;">
+                        <div class="history-btn" onclick="toggleHistory()">📜 Recent Prompts <span id="historyCount">(0)</span></div>
+                        <div class="history-dropdown" id="historyDropdown"></div>
+                    </div>
+                </div>
+
                 <div class="option-group" style="margin-bottom: var(--space-3);">
                     <label for="negativePrompt">Negative Prompt</label>
                     <span class="option-hint">Describe what you DON'T want in the image</span>
@@ -1597,13 +1729,11 @@ HTML_PAGE = '''<!DOCTYPE html>
                 <div class="options-row">
                     <div class="option-group">
                         <label for="seedInput">Seed</label>
-                        <span class="option-hint">Same seed = same image. Leave empty for random.</span>
-                        <input type="number" id="seedInput" placeholder="Random">
+                        <input type="number" id="seedInput" placeholder="Random" title="Same seed = same image">
                     </div>
                     <div class="option-group">
                         <label for="sampler">Sampler</label>
-                        <span class="option-hint">Algorithm for generating. Euler is fastest.</span>
-                        <select id="sampler">
+                        <select id="sampler" title="Algorithm for generating">
                             <option value="euler" selected>euler (fast, default)</option>
                             <option value="euler_ancestral">euler_ancestral (creative)</option>
                             <option value="dpmpp_2m">dpmpp_2m (balanced)</option>
@@ -1613,22 +1743,18 @@ HTML_PAGE = '''<!DOCTYPE html>
                     </div>
                     <div class="option-group">
                         <label for="scheduler">Scheduler</label>
-                        <span class="option-hint">Controls noise reduction curve.</span>
-                        <select id="scheduler">
+                        <select id="scheduler" title="Controls noise reduction">
                             <option value="normal" selected>normal (default)</option>
                             <option value="karras">karras (sharper)</option>
                             <option value="exponential">exponential (smooth)</option>
                             <option value="simple">simple (linear)</option>
                         </select>
                     </div>
-                </div>
-
-                <div class="option-group" style="margin-top: var(--space-2);">
-                    <label>Batch Size</label>
-                    <span class="option-hint">Generate multiple variations at once (uses more VRAM)</span>
-                    <div class="batch-row" style="margin-top: var(--space-1); margin-bottom: 0;">
-                        <input type="number" id="batchSize" class="batch-input" value="1" min="1" max="4">
-                        <span class="batch-label">images per generation</span>
+                    <div class="option-group" style="flex: 0 0 auto; min-width: auto;">
+                        <label>Batch</label>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <input type="number" id="batchSize" class="batch-input" value="1" min="1" max="4" title="Generate multiple at once">
+                        </div>
                     </div>
                 </div>
             </div>
@@ -2189,7 +2315,15 @@ HTML_PAGE = '''<!DOCTYPE html>
         function toggleHistory() {
             const dropdown = document.getElementById('historyDropdown');
             dropdown.classList.toggle('show');
-            if (dropdown.classList.contains('show')) renderHistory();
+            if (dropdown.classList.contains('show')) {
+                historySearchTerm = '';
+                renderHistory();
+                // Focus search input when opened
+                setTimeout(() => {
+                    const input = document.getElementById('historySearchInput');
+                    if (input) input.focus();
+                }, 50);
+            }
         }
 
         // AI-Powered Prompt Refinement - Local (Ollama/Qwen) and Cloud (Gemini)
@@ -2245,22 +2379,51 @@ HTML_PAGE = '''<!DOCTYPE html>
         // Local refinement (Qwen abliterated - uncensored)
         function refineLocal(mode) { refinePromptAI(mode, 'ollama'); }
 
-        function renderHistory() {
+        let historySearchTerm = '';
+
+        function renderHistory(searchTerm = '') {
             const dropdown = document.getElementById('historyDropdown');
             document.getElementById('historyCount').textContent = '(' + promptHistory.length + ')';
-            if (promptHistory.length === 0) {
-                dropdown.innerHTML = '<div class="history-item" style="color:#888;">No recent prompts</div>';
-                return;
+
+            // Filter history based on search
+            const filtered = searchTerm
+                ? promptHistory.filter(item =>
+                    item.prompt.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    item.mode.toLowerCase().includes(searchTerm.toLowerCase()))
+                : promptHistory;
+
+            let html = '<div class="history-search"><input type="text" id="historySearchInput" placeholder="Search prompts..." value="' + (searchTerm || '') + '" oninput="filterHistory(this.value)"></div>';
+
+            if (filtered.length === 0) {
+                html += '<div class="history-empty">' + (searchTerm ? 'No matching prompts' : 'No recent prompts') + '</div>';
+            } else {
+                html += '<div class="history-list">' + filtered.slice(0, 20).map((item, i) => {
+                    const originalIndex = promptHistory.indexOf(item);
+                    return '<div class="history-item" style="display:flex; justify-content:space-between; align-items:center;">' +
+                        '<div onclick="useHistoryPrompt(' + originalIndex + ')" style="flex:1; cursor:pointer;">' +
+                        '<div>' + item.prompt.substring(0, 60) + (item.prompt.length > 60 ? '...' : '') + '</div>' +
+                        '<div class="history-meta">' + item.mode + ' | ' + item.resolution + 'px' +
+                        (item.timestamp ? ' | ' + new Date(item.timestamp).toLocaleDateString() : '') + '</div>' +
+                        '</div>' +
+                        '<span onclick="event.stopPropagation(); deleteHistoryItem(' + originalIndex + ')" style="cursor:pointer; padding:5px; opacity:0.6;" title="Delete">🗑️</span>' +
+                        '</div>';
+                }).join('') + '</div>';
             }
-            dropdown.innerHTML = promptHistory.slice(0, 10).map((item, i) =>
-                '<div class="history-item" style="display:flex; justify-content:space-between; align-items:center;">' +
-                '<div onclick="useHistoryPrompt(' + i + ')" style="flex:1; cursor:pointer;">' +
-                '<div>' + item.prompt.substring(0, 50) + (item.prompt.length > 50 ? '...' : '') + '</div>' +
-                '<div class="history-meta">' + item.mode + ' | ' + item.resolution + 'px</div>' +
-                '</div>' +
-                '<span onclick="event.stopPropagation(); deleteHistoryItem(' + i + ')" style="cursor:pointer; padding:5px; opacity:0.6;" title="Delete">🗑️</span>' +
-                '</div>'
-            ).join('');
+
+            dropdown.innerHTML = html;
+        }
+
+        function filterHistory(term) {
+            historySearchTerm = term;
+            renderHistory(term);
+            // Keep focus on search input
+            setTimeout(() => {
+                const input = document.getElementById('historySearchInput');
+                if (input) {
+                    input.focus();
+                    input.setSelectionRange(input.value.length, input.value.length);
+                }
+            }, 0);
         }
 
         async function deleteHistoryItem(index) {
@@ -2347,6 +2510,80 @@ HTML_PAGE = '''<!DOCTYPE html>
             } catch (e) {}
         }
 
+        let currentBatchIndex = 0;
+        let totalBatchSize = 1;
+
+        async function pollBatchProgress() {
+            if (!currentPromptId) return;
+            try {
+                const response = await fetch('/progress?prompt_id=' + currentPromptId);
+                const data = await response.json();
+                const progressFill = document.getElementById('progressFill');
+                const stepText = document.getElementById('stepText');
+                const timeRemaining = document.getElementById('timeRemaining');
+                const progressContainer = document.getElementById('progressContainer');
+                const statusText = document.getElementById('statusText');
+
+                // Update batch progress indicator if batch > 1
+                if (totalBatchSize > 1) {
+                    const batchItem = document.getElementById('batch-item-' + currentBatchIndex);
+                    if (batchItem) {
+                        const miniProgress = batchItem.querySelector('.mini-progress-fill');
+                        if (data.status === 'generating' && miniProgress) {
+                            const percent = (data.current_step / data.total_steps) * 100;
+                            miniProgress.style.width = percent + '%';
+                        }
+                    }
+                }
+
+                if (data.status === 'loading') {
+                    statusText.textContent = totalBatchSize > 1
+                        ? '📦 Image ' + (currentBatchIndex + 1) + '/' + totalBatchSize + ': Loading models...'
+                        : '📦 ' + data.message;
+                    progressContainer.style.display = 'none';
+                } else if (data.status === 'generating') {
+                    progressContainer.style.display = 'block';
+                    const percent = (data.current_step / data.total_steps) * 100;
+                    progressFill.style.width = percent + '%';
+                    stepText.textContent = 'Step ' + data.current_step + '/' + data.total_steps;
+                    statusText.textContent = totalBatchSize > 1
+                        ? '🎨 Image ' + (currentBatchIndex + 1) + '/' + totalBatchSize + ' generating...'
+                        : '🎨 Generating...';
+                    if (data.current_step > 0 && startTime) {
+                        const elapsed = (Date.now() - startTime) / 1000;
+                        const remaining = (elapsed / data.current_step) * (data.total_steps - data.current_step);
+                        timeRemaining.textContent = '~' + formatTime(remaining) + ' left';
+                    }
+                } else if (data.status === 'done') {
+                    progressFill.style.width = '100%';
+                    timeRemaining.textContent = 'Done!';
+                }
+            } catch (e) {}
+        }
+
+        function renderBatchProgress(batchSize, currentIndex, completedIndices) {
+            let html = '<div class="batch-progress">';
+            for (let i = 0; i < batchSize; i++) {
+                let className = 'batch-progress-item';
+                let icon = '⏳';
+                if (completedIndices.includes(i)) {
+                    className += ' done';
+                    icon = '✅';
+                } else if (i === currentIndex) {
+                    className += ' active';
+                    icon = '🎨';
+                }
+                html += '<div id="batch-item-' + i + '" class="' + className + '">' +
+                    icon + ' #' + (i + 1);
+                if (i === currentIndex && !completedIndices.includes(i)) {
+                    html += '<div class="mini-progress"><div class="mini-progress-fill" style="width: 0%"></div></div>';
+                }
+                html += '</div>';
+            }
+            html += '</div>';
+            return html;
+        }
+
         async function generate() {
             const prompt = document.getElementById('prompt').value.trim();
             if (!prompt) { showToast('Missing Prompt', 'Please enter a prompt first', 'warning'); return; }
@@ -2356,7 +2593,7 @@ HTML_PAGE = '''<!DOCTYPE html>
             const aspect = document.getElementById('aspect').value;
             const negativePrompt = document.getElementById('negativePrompt').value.trim();
             const seedInput = document.getElementById('seedInput').value;
-            const seed = seedInput ? parseInt(seedInput) : null;
+            const baseSeed = seedInput ? parseInt(seedInput) : null;
             const sampler = document.getElementById('sampler').value;
             const scheduler = document.getElementById('scheduler').value;
             const batchSize = parseInt(document.getElementById('batchSize').value) || 1;
@@ -2371,61 +2608,114 @@ HTML_PAGE = '''<!DOCTYPE html>
             const progressContainer = document.getElementById('progressContainer');
 
             btn.disabled = true;
-            btn.textContent = '⏳ Generating...';
             document.getElementById('cancelBtn').style.display = 'inline-flex';
             status.style.display = 'block';
             status.className = 'generating';
-            statusText.textContent = '🚀 Starting...';
             progressContainer.style.display = 'none';
             document.getElementById('progressFill').style.width = '0%';
-            result.innerHTML = '';
             startTime = Date.now();
 
+            // Initialize batch tracking
+            totalBatchSize = batchSize;
+            currentBatchIndex = 0;
+            const generatedImages = [];
+            const seeds = [];
+            const completedIndices = [];
+
+            // Show batch progress UI if batch > 1
+            if (batchSize > 1) {
+                result.innerHTML = renderBatchProgress(batchSize, 0, []);
+            } else {
+                result.innerHTML = '';
+            }
+
             try {
-                const queueResponse = await fetch('/queue', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({prompt, mode, resolution, aspect, negativePrompt, seed, sampler, scheduler})
-                });
-                const queueData = await queueResponse.json();
-                if (!queueData.prompt_id) throw new Error(queueData.error || 'Failed to queue');
+                for (let i = 0; i < batchSize; i++) {
+                    currentBatchIndex = i;
+                    const seed = baseSeed ? baseSeed + i : null;
+                    btn.textContent = batchSize > 1 ? '⏳ ' + (i + 1) + '/' + batchSize : '⏳ Generating...';
+                    statusText.textContent = batchSize > 1 ? '🚀 Starting image ' + (i + 1) + '...' : '🚀 Starting...';
 
-                currentPromptId = queueData.prompt_id;
-                lastSeed = queueData.seed;
-                progressInterval = setInterval(pollProgress, 500);
+                    // Update batch progress UI
+                    if (batchSize > 1) {
+                        result.innerHTML = renderBatchProgress(batchSize, i, completedIndices);
+                    }
 
-                const response = await fetch('/wait?prompt_id=' + currentPromptId);
-                const data = await response.json();
+                    const queueResponse = await fetch('/queue', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({prompt, mode, resolution, aspect, negativePrompt, seed, sampler, scheduler})
+                    });
+                    const queueData = await queueResponse.json();
+                    if (!queueData.prompt_id) throw new Error(queueData.error || 'Failed to queue');
 
-                clearInterval(progressInterval);
+                    currentPromptId = queueData.prompt_id;
+                    seeds.push(queueData.seed);
+                    startTime = Date.now(); // Reset start time for each image
+                    progressInterval = setInterval(pollBatchProgress, 500);
+
+                    const response = await fetch('/wait?prompt_id=' + currentPromptId);
+                    const data = await response.json();
+
+                    clearInterval(progressInterval);
+
+                    if (data.success) {
+                        generatedImages.push(data.image);
+                        completedIndices.push(i);
+                        // Update batch progress to show this one as done
+                        if (batchSize > 1 && i < batchSize - 1) {
+                            result.innerHTML = renderBatchProgress(batchSize, i + 1, completedIndices);
+                        }
+                    } else {
+                        throw new Error(data.error || 'Generation failed');
+                    }
+                }
+
                 currentPromptId = null;
+                lastSeed = seeds[seeds.length - 1];
 
-                if (data.success) {
-                    status.className = 'success';
-                    statusText.textContent = '✅ Done!';
-                    progressContainer.style.display = 'none';
-                    const filename = data.image.split('/').pop();
-                    result.innerHTML = '<img src="' + data.image + '?t=' + Date.now() + '">' +
+                status.className = 'success';
+                statusText.textContent = batchSize > 1 ? '✅ ' + batchSize + ' images done!' : '✅ Done!';
+                progressContainer.style.display = 'none';
+
+                if (batchSize === 1) {
+                    const filename = generatedImages[0].split('/').pop();
+                    result.innerHTML = '<img src="' + generatedImages[0] + '?t=' + Date.now() + '">' +
                         '<div class="result-actions">' +
-                        '<a href="' + data.image + '" download="' + filename + '"><button class="btn-green">⬇️ Download</button></a>' +
+                        '<a href="' + generatedImages[0] + '" download="' + filename + '"><button class="btn-green">⬇️ Download</button></a>' +
                         '<button onclick="toggleFavorite(\\'' + filename + '\\')">⭐ Favorite</button>' +
                         '<button class="btn-secondary" onclick="copySeed()">📋 Copy Seed</button>' +
                         '</div>' +
                         '<div class="result-info">Seed: <span class="seed-display" onclick="copySeed()" title="Click to copy">' + lastSeed + '</span></div>';
-                    document.getElementById('regenerateBtn').disabled = false;
-                    showToast('Image Generated', 'Your image is ready', 'success');
                 } else {
-                    status.className = 'error';
-                    statusText.textContent = '❌ ' + data.error;
-                    showToast('Generation Failed', data.error, 'error');
+                    // Grid layout for batch results
+                    let html = '<div class="batch-results">';
+                    generatedImages.forEach((img, idx) => {
+                        const filename = img.split('/').pop();
+                        html += '<div class="batch-item">' +
+                            '<img src="' + img + '?t=' + Date.now() + '">' +
+                            '<div class="batch-item-actions">' +
+                            '<a href="' + img + '" download="' + filename + '"><button class="btn-green btn-sm">⬇️</button></a>' +
+                            '<button class="btn-sm" onclick="toggleFavorite(\\'' + filename + '\\')">⭐</button>' +
+                            '</div>' +
+                            '<div class="batch-seed">Seed: ' + seeds[idx] + '</div>' +
+                            '</div>';
+                    });
+                    html += '</div>';
+                    result.innerHTML = html;
                 }
+
+                document.getElementById('regenerateBtn').disabled = false;
+                showToast(batchSize > 1 ? 'Batch Complete' : 'Image Generated', batchSize > 1 ? batchSize + ' images ready' : 'Your image is ready', 'success');
             } catch (e) {
                 clearInterval(progressInterval);
                 status.className = 'error';
                 statusText.textContent = '❌ ' + e.message;
                 showToast('Error', e.message, 'error');
             } finally {
-                // Always reset button state
+                currentPromptId = null;
+                totalBatchSize = 1;
+                currentBatchIndex = 0;
                 btn.disabled = false;
                 btn.textContent = '✨ Generate';
                 document.getElementById('cancelBtn').style.display = 'none';
