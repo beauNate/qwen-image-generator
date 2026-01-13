@@ -686,6 +686,10 @@ HTML_PAGE = '''<!DOCTYPE html>
             to { opacity: 1; transform: scale(1) translateY(0); }
         }
 
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
         #result {
             text-align: center;
             margin: var(--space-6) 0;
@@ -1905,8 +1909,12 @@ HTML_PAGE = '''<!DOCTYPE html>
     <div id="tab-edit" class="tab-content">
         <div class="input-section">
             <label>Upload Image to Edit</label>
+            <div style="display: flex; gap: var(--space-2); margin-bottom: var(--space-2);">
+                <button type="button" class="btn-secondary" style="flex: 1;" onclick="document.getElementById('imageUpload').click()">📁 Upload File</button>
+                <button type="button" class="btn-secondary" style="flex: 1;" onclick="openGalleryPicker()">🖼️ From Gallery</button>
+            </div>
             <div class="upload-area" id="uploadArea" onclick="document.getElementById('imageUpload').click()">
-                <div>📁 Click or drag image here</div>
+                <div id="uploadPlaceholder">📁 Click or drag image here</div>
                 <img id="uploadPreview" class="upload-preview" style="display:none;">
                 <input type="file" id="imageUpload" accept="image/*" style="display:none;" onchange="handleUpload(event)">
             </div>
@@ -2069,6 +2077,17 @@ HTML_PAGE = '''<!DOCTYPE html>
     <div class="modal" id="imageModal" onclick="closeModal()">
         <span class="modal-close">&times;</span>
         <img id="modalImage" src="">
+    </div>
+
+    <!-- Gallery Picker Modal for Edit Tab -->
+    <div class="modal" id="galleryPickerModal" onclick="closeGalleryPicker(event)" style="display: none;">
+        <div onclick="event.stopPropagation()" style="background: rgba(30, 30, 50, 0.98); backdrop-filter: blur(20px); padding: var(--space-4); border-radius: var(--radius-lg); max-width: 600px; max-height: 80vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-3);">
+                <h3 style="margin: 0;">Select Image to Edit</h3>
+                <button onclick="closeGalleryPicker()" style="background: none; border: none; color: var(--text-tertiary); font-size: 20px; cursor: pointer;">&times;</button>
+            </div>
+            <div id="galleryPickerGrid" class="gallery" style="grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));"></div>
+        </div>
     </div>
 
     <script>
@@ -3158,6 +3177,59 @@ HTML_PAGE = '''<!DOCTYPE html>
             }
         });
 
+        // Gallery Picker for Edit Tab
+        async function openGalleryPicker() {
+            const modal = document.getElementById('galleryPickerModal');
+            const grid = document.getElementById('galleryPickerGrid');
+
+            try {
+                const response = await fetch('/gallery');
+                const images = await response.json();
+
+                if (images.length === 0) {
+                    grid.innerHTML = '<div class="gallery-empty">No images in gallery. Generate some first!</div>';
+                } else {
+                    grid.innerHTML = images.slice(0, 20).map(item => {
+                        const img = item.filename;
+                        const q = String.fromCharCode(39);
+                        return '<div class="gallery-item" style="cursor:pointer;" onclick="selectGalleryImage(' + q + img + q + ')">' +
+                            '<img src="/output/' + img + '">' +
+                            '</div>';
+                    }).join('');
+                }
+                modal.style.display = 'flex';
+            } catch (e) {
+                showToast('Error', 'Could not load gallery', 'error');
+            }
+        }
+
+        function closeGalleryPicker(event) {
+            if (!event || event.target.id === 'galleryPickerModal') {
+                document.getElementById('galleryPickerModal').style.display = 'none';
+            }
+        }
+
+        async function selectGalleryImage(filename) {
+            // Load image from gallery and convert to base64
+            try {
+                const response = await fetch('/output/' + filename);
+                const blob = await response.blob();
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    uploadedImageData = e.target.result;
+                    const preview = document.getElementById('uploadPreview');
+                    preview.src = uploadedImageData;
+                    preview.style.display = 'block';
+                    document.getElementById('uploadPlaceholder').style.display = 'none';
+                    closeGalleryPicker();
+                    showToast('Image Selected', 'Ready for editing', 'success');
+                };
+                reader.readAsDataURL(blob);
+            } catch (e) {
+                showToast('Error', 'Could not load image', 'error');
+            }
+        }
+
         let currentEditMode = 'standard';
 
         function selectEditMode(mode) {
@@ -3262,9 +3334,14 @@ HTML_PAGE = '''<!DOCTYPE html>
                 editPrompt = anglePrompt;  // Camera angle only
             }
 
+            const originalImage = uploadedImageData;
             document.getElementById('editBtn').disabled = true;
             document.getElementById('editBtn').textContent = '⏳ Processing...';
-            document.getElementById('editResult').innerHTML = '<p style="text-align:center;">🎨 Editing image... This may take a few minutes.</p>';
+            document.getElementById('editResult').innerHTML =
+                '<div style="text-align:center; padding: var(--space-4);">' +
+                '<div class="spinner" style="width:32px;height:32px;border:3px solid var(--glass-border);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto;"></div>' +
+                '<p style="margin-top:var(--space-2);color:var(--text-secondary);">🎨 Editing image... This may take 2-5 minutes</p>' +
+                '</div>';
 
             try {
                 const response = await fetch('/edit', {
@@ -3280,13 +3357,30 @@ HTML_PAGE = '''<!DOCTYPE html>
                 });
                 const data = await response.json();
                 if (data.success) {
-                    document.getElementById('editResult').innerHTML = '<img src="' + data.image + '?t=' + Date.now() + '" style="max-width:100%; border-radius:12px;">' +
-                        '<div class="result-actions"><a href="' + data.image + '" download><button class="btn-green">⬇️ Download</button></a></div>';
+                    const filename = data.image.split('/').pop();
+                    document.getElementById('editResult').innerHTML =
+                        '<div style="display:grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-bottom: var(--space-3);">' +
+                        '<div style="text-align:center;">' +
+                        '<div style="font-size:var(--text-sm);color:var(--text-tertiary);margin-bottom:var(--space-1);">Before</div>' +
+                        '<img src="' + originalImage + '" style="width:100%;border-radius:var(--radius-md);border:1px solid var(--glass-border);">' +
+                        '</div>' +
+                        '<div style="text-align:center;">' +
+                        '<div style="font-size:var(--text-sm);color:var(--text-tertiary);margin-bottom:var(--space-1);">After</div>' +
+                        '<img src="' + data.image + '?t=' + Date.now() + '" style="width:100%;border-radius:var(--radius-md);border:1px solid var(--accent);">' +
+                        '</div>' +
+                        '</div>' +
+                        '<div class="result-actions">' +
+                        '<a href="' + data.image + '" download="' + filename + '"><button class="btn-green">⬇️ Download</button></a>' +
+                        '<button onclick="toggleFavorite(\\'' + filename + '\\')">⭐ Favorite</button>' +
+                        '</div>';
+                    showToast('Edit Complete', 'Your image has been edited', 'success');
                 } else {
                     document.getElementById('editResult').innerHTML = '<p style="color:#f56565;">❌ ' + data.error + '</p>';
+                    showToast('Edit Failed', data.error, 'error');
                 }
             } catch (e) {
                 document.getElementById('editResult').innerHTML = '<p style="color:#f56565;">❌ ' + e.message + '</p>';
+                showToast('Error', e.message, 'error');
             } finally {
                 // Always reset button state, even if request times out or fails
                 document.getElementById('editBtn').disabled = false;

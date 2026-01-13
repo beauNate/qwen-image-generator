@@ -77,12 +77,12 @@ Or use the macOS app: double-click `Qwen Image Generator.app`
 ## Roadmap
 
 - [ ] Custom saveable presets
-- [ ] Batch generation progress (individual image tracking)
+- [x] Batch generation progress (individual image tracking)
 - [ ] Video generation support
 - [ ] Audio generation support
 - [ ] 3D model generation
-- [ ] Upscaling with LoRAs
-- [ ] Multi-angle camera controls
+- [x] Upscaling with LoRAs (2K/4K)
+- [x] Multi-angle camera controls (96 positions)
 - [ ] Image inpainting
 
 ## License
