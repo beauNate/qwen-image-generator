@@ -329,23 +329,39 @@ HTML_PAGE = '''<!DOCTYPE html>
             --accent-hover: #409CFF;
             --accent-glow: rgba(10, 132, 255, 0.35);
             --accent-bg: rgba(10, 132, 255, 0.12);
+            --accent-bg-hover: rgba(10, 132, 255, 0.15);
+            --accent-bg-active: rgba(10, 132, 255, 0.25);
+            --accent-bg-subtle: rgba(10, 132, 255, 0.1);
+            --accent-bg-medium: rgba(10, 132, 255, 0.2);
+            --accent-border: rgba(10, 132, 255, 0.25);
+            --accent-border-hover: rgba(10, 132, 255, 0.4);
+            --accent-ring: rgba(10, 132, 255, 0.2);
 
             /* Semantic */
             --success: #30D158;
             --success-bg: rgba(48, 209, 88, 0.12);
+            --success-glow: rgba(48, 209, 88, 0.35);
             --warning: #FFD60A;
             --error: #FF453A;
             --error-bg: rgba(255, 69, 58, 0.12);
+            --error-bg-hover: rgba(255, 69, 58, 0.15);
+            --error-bg-active: rgba(255, 69, 58, 0.25);
+            --error-border: rgba(255, 69, 58, 0.3);
+            --error-border-hover: rgba(255, 69, 58, 0.5);
+            --error-muted: rgba(255, 69, 58, 0.8);
+            --purple: #A855F7;  /* Apple systemPurple-like */
 
-            /* Typography - Consistent scale */
+            /* Typography - Apple HIG scale (strict) */
             --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
             --font-mono: "SF Mono", "Fira Code", ui-monospace, monospace;
-            --text-xs: 11px;
-            --text-sm: 13px;
-            --text-base: 14px;
-            --text-lg: 16px;
-            --text-xl: 20px;
-            --text-2xl: 28px;
+            --text-caption: 12px;   /* Caption 2 */
+            --text-footnote: 13px;  /* Footnote */
+            --text-subhead: 15px;   /* Subhead */
+            --text-body: 17px;      /* Body - THE standard */
+            --text-title3: 20px;    /* Title 3 */
+            --text-title2: 22px;    /* Title 2 */
+            --text-title1: 28px;    /* Title 1 */
+            --text-largetitle: 34px;/* Large Title */
 
             /* Radius - Apple's signature */
             --radius-sm: 8px;
@@ -376,8 +392,8 @@ HTML_PAGE = '''<!DOCTYPE html>
 
         body {
             font-family: var(--font-sans);
-            font-size: var(--text-base);
-            line-height: 1.5;
+            font-size: var(--text-body);  /* 17px - Apple HIG body standard */
+            line-height: 1.47;            /* Apple's recommended line height */
             color: var(--text-primary);
             max-width: 600px;
             margin: 0 auto;
@@ -429,7 +445,7 @@ HTML_PAGE = '''<!DOCTYPE html>
         h1 {
             text-align: center;
             margin-bottom: var(--space-1);
-            font-size: var(--text-2xl);
+            font-size: var(--text-title1);
             font-weight: 700;
             letter-spacing: -0.02em;
             background: linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.8) 100%);
@@ -443,7 +459,7 @@ HTML_PAGE = '''<!DOCTYPE html>
             text-align: center;
             color: var(--text-tertiary);
             margin-bottom: var(--space-6);
-            font-size: var(--text-base);
+            font-size: var(--text-subhead);
             font-weight: 400;
             animation: fadeInUp 0.4s var(--ease-out) 0.15s both;
         }
@@ -452,17 +468,17 @@ HTML_PAGE = '''<!DOCTYPE html>
         .connection-status {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            font-size: var(--text-xs);
+            gap: var(--space-2);
+            font-size: var(--text-caption);
             color: var(--text-quaternary);
-            margin-left: 8px;
+            margin-left: var(--space-2);
         }
         .status-dot {
             width: 8px;
             height: 8px;
             border-radius: 50%;
             background: var(--text-quaternary);
-            transition: background 0.3s;
+            transition: background var(--duration-slow);
         }
         .status-dot.connected { background: var(--success); box-shadow: 0 0 6px var(--success); }
         .status-dot.disconnected { background: var(--error); box-shadow: 0 0 6px var(--error); }
@@ -472,12 +488,12 @@ HTML_PAGE = '''<!DOCTYPE html>
         /* Toast Notifications */
         .toast-container {
             position: fixed;
-            top: 20px;
-            right: 20px;
+            top: var(--space-5);
+            right: var(--space-5);
             z-index: 10000;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: var(--space-2);
             pointer-events: none;
         }
         .toast {
@@ -486,10 +502,10 @@ HTML_PAGE = '''<!DOCTYPE html>
             -webkit-backdrop-filter: blur(20px) saturate(180%);
             border: 1px solid var(--glass-border);
             border-radius: var(--radius-md);
-            padding: 12px 16px;
+            padding: var(--space-3) var(--space-4);
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: var(--space-2);
             min-width: 250px;
             max-width: 400px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
@@ -500,7 +516,7 @@ HTML_PAGE = '''<!DOCTYPE html>
             animation: toastOut 0.3s var(--ease-out) forwards;
         }
         .toast-icon {
-            font-size: 18px;
+            font-size: var(--text-body);
             flex-shrink: 0;
         }
         .toast-content {
@@ -508,13 +524,13 @@ HTML_PAGE = '''<!DOCTYPE html>
         }
         .toast-title {
             font-weight: 600;
-            font-size: var(--text-sm);
+            font-size: var(--text-footnote);
             color: var(--text-primary);
         }
         .toast-message {
-            font-size: var(--text-xs);
+            font-size: var(--text-caption);
             color: var(--text-secondary);
-            margin-top: 2px;
+            margin-top: var(--space-1);
         }
         .toast.success { border-left: 3px solid var(--success); }
         .toast.error { border-left: 3px solid var(--error); }
@@ -560,7 +576,7 @@ HTML_PAGE = '''<!DOCTYPE html>
             cursor: pointer;
             border: none;
             color: var(--text-tertiary);
-            font-size: var(--text-base);
+            font-size: var(--text-subhead);
             font-weight: 500;
             border-radius: var(--radius-lg);
             transition: all var(--duration-base) var(--ease-out);
@@ -596,11 +612,16 @@ HTML_PAGE = '''<!DOCTYPE html>
             animation: fadeInUp 0.4s var(--ease-out) 0.25s both;
         }
 
+        .input-section > h2:first-child {
+            margin-top: 0;
+            margin-bottom: var(--space-4);
+        }
+
         label {
             display: block;
             margin-bottom: var(--space-2);
             font-weight: 500;
-            font-size: var(--text-sm);
+            font-size: var(--text-footnote);
             color: var(--text-secondary);
             letter-spacing: 0.01em;
         }
@@ -610,7 +631,7 @@ HTML_PAGE = '''<!DOCTYPE html>
             padding: var(--space-3) var(--space-4);
             border: 1px solid var(--glass-border);
             border-radius: var(--radius-md);
-            font-size: var(--text-base);
+            font-size: var(--text-subhead);
             font-family: var(--font-sans);
             background: rgba(0, 0, 0, 0.2);
             color: var(--text-primary);
@@ -619,6 +640,7 @@ HTML_PAGE = '''<!DOCTYPE html>
         }
 
         textarea { height: 110px; resize: vertical; overflow-y: auto; }
+        textarea.textarea-short { height: 60px; }
 
         textarea:focus, input:focus, select:focus {
             outline: none;
@@ -638,16 +660,43 @@ HTML_PAGE = '''<!DOCTYPE html>
             margin-bottom: var(--space-3);
             flex-wrap: wrap;
         }
-        .option-group { flex: 1; min-width: 130px; }
-        .option-group label { display: block; margin-bottom: 4px; }
-        .option-group .option-hint { display: block; margin-bottom: 6px; }
+        .options-row-spaced {
+            display: flex;
+            gap: var(--space-3);
+            margin-top: var(--space-3);
+            margin-bottom: var(--space-3);
+            flex-wrap: wrap;
+        }
+        .option-group {
+            flex: 1;
+            min-width: 130px;
+            display: flex;
+            flex-direction: column;
+        }
+        .option-group label {
+            display: block;
+            margin-bottom: var(--space-1);
+            font-size: var(--text-footnote);
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        .option-group .option-hint {
+            display: block;
+            margin-bottom: var(--space-2);
+            font-size: var(--text-caption);
+            color: var(--text-tertiary);
+        }
+        .option-group select,
+        .option-group input {
+            flex: 1;
+        }
 
         select {
             width: 100%;
             padding: var(--space-2) var(--space-3);
             border: 1px solid var(--glass-border);
             border-radius: var(--radius-md);
-            font-size: var(--text-base);
+            font-size: var(--text-subhead);
             font-family: var(--font-sans);
             background: rgba(0, 0, 0, 0.2);
             color: var(--text-primary);
@@ -668,8 +717,8 @@ HTML_PAGE = '''<!DOCTYPE html>
         }
 
         .time-estimate {
-            font-size: var(--text-sm);
-            color: var(--accent);
+            font-size: var(--text-footnote);
+            color: var(--text-secondary);
             margin-bottom: var(--space-3);
             font-weight: 500;
         }
@@ -677,7 +726,7 @@ HTML_PAGE = '''<!DOCTYPE html>
         /* Buttons - Apple style with glow */
         button {
             padding: var(--space-2) var(--space-5);
-            font-size: var(--text-base);
+            font-size: var(--text-subhead);
             font-weight: 600;
             font-family: var(--font-sans);
             background: var(--accent);
@@ -699,7 +748,7 @@ HTML_PAGE = '''<!DOCTYPE html>
 
         button:active:not(:disabled) {
             transform: scale(0.98) translateY(0);
-            transition: transform 0.1s var(--ease-out);
+            transition: transform var(--duration-fast) var(--ease-out);
         }
 
         button:disabled {
@@ -710,8 +759,34 @@ HTML_PAGE = '''<!DOCTYPE html>
             transform: none;
         }
 
-        .btn-row { display: flex; gap: var(--space-2); }
-        .btn-row button { flex: 1; }
+        .btn-row {
+            display: flex;
+            gap: var(--space-2);
+        }
+        .btn-row button {
+            flex: 1;
+            min-height: 48px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-1);
+            white-space: nowrap;
+        }
+
+        /* Fill button row - buttons expand to fill space */
+        .btn-row-fill {
+            display: flex;
+            gap: var(--space-2);
+            margin-bottom: var(--space-2);
+        }
+        .btn-row-fill > button,
+        .btn-row-fill > .btn-secondary {
+            flex: 1;
+            min-height: 44px;
+        }
+
+        /* Hidden utility */
+        .hidden { display: none !important; }
 
         .btn-secondary {
             background: var(--glass-bg);
@@ -730,68 +805,86 @@ HTML_PAGE = '''<!DOCTYPE html>
 
         .btn-green {
             background: var(--success);
-            box-shadow: 0 2px 8px rgba(48, 209, 88, 0.35);
+            box-shadow: 0 2px 8px var(--success-glow);
         }
 
         .btn-green:hover:not(:disabled) {
-            background: #3adb62;
-            box-shadow: 0 4px 16px rgba(48, 209, 88, 0.35);
+            background: var(--success);
+            box-shadow: 0 4px 16px var(--success-glow);
         }
 
         /* Cancel button - subdued until hovered */
         .btn-cancel {
-            background: rgba(255, 69, 58, 0.15);
-            color: rgba(255, 69, 58, 0.8);
-            border: 1px solid rgba(255, 69, 58, 0.3);
+            background: var(--error-bg-hover);
+            color: var(--error-muted);
+            border: 1px solid var(--error-border);
             box-shadow: none;
         }
         .btn-cancel:hover:not(:disabled) {
-            background: rgba(255, 69, 58, 0.25);
-            color: #FF453A;
-            border-color: rgba(255, 69, 58, 0.5);
+            background: var(--error-bg-active);
+            color: var(--error);
+            border-color: var(--error-border-hover);
             box-shadow: none;
             transform: none;
         }
 
         /* Cheatsheet buttons */
         .cheat-btn {
-            padding: 8px 16px;
-            background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.15);
-            border-radius: 6px;
-            color: #fff;
+            padding: var(--space-2) var(--space-4);
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
             cursor: pointer;
-            font-size: 13px;
-            transition: all 0.15s ease-out;
+            font-size: var(--text-footnote);
+            transition: all var(--duration-fast) var(--ease-out);
             min-height: 44px;
         }
         .cheat-btn:hover {
-            background: rgba(102, 126, 234, 0.25);
-            border-color: rgba(102, 126, 234, 0.5);
+            background: var(--accent-bg);
+            border-color: var(--accent-border-hover);
+        }
+
+        /* Textarea container with AI buttons */
+        .textarea-container {
+            position: relative;
+        }
+
+        .textarea-container textarea {
+            padding-right: 140px; /* Space for AI buttons */
+        }
+
+        .ai-buttons {
+            position: absolute;
+            right: var(--space-2);
+            top: var(--space-2);
+            display: flex;
+            flex-direction: row;
+            gap: var(--space-1);
         }
 
         /* Floating AI buttons - 44px touch targets */
         .ai-float-btn {
-            width: 36px;
-            height: 36px;
+            width: 40px;
+            height: 40px;
             min-width: 44px;
             min-height: 44px;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.12);
-            border-radius: 6px;
-            color: #fff;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: var(--radius-sm);
+            color: var(--text-tertiary);
             cursor: pointer;
-            font-size: 14px;
-            transition: all 0.15s ease-out;
-            opacity: 0.7;
+            font-size: var(--text-subhead);
+            transition: all var(--duration-fast) var(--ease-out);
         }
+
         .ai-float-btn:hover {
-            opacity: 1;
-            background: rgba(102, 126, 234, 0.3);
-            border-color: rgba(102, 126, 234, 0.5);
+            background: var(--accent-bg-hover);
+            border-color: var(--accent-border);
+            color: var(--text-primary);
         }
 
         /* Status */
@@ -801,7 +894,7 @@ HTML_PAGE = '''<!DOCTYPE html>
             margin: var(--space-3) 0;
             border-radius: var(--radius-md);
             display: none;
-            font-size: var(--text-base);
+            font-size: var(--text-subhead);
             font-weight: 500;
             backdrop-filter: blur(10px);
         }
@@ -813,7 +906,7 @@ HTML_PAGE = '''<!DOCTYPE html>
 
         .generating {
             background: var(--accent-bg);
-            border: 1px solid rgba(10, 132, 255, 0.25);
+            border: 1px solid var(--accent-bg-active);
             animation: pulse 1.5s ease-in-out infinite;
             color: var(--accent);
         }
@@ -826,7 +919,7 @@ HTML_PAGE = '''<!DOCTYPE html>
 
         .error {
             background: var(--error-bg);
-            border: 1px solid rgba(255, 69, 58, 0.25);
+            border: 1px solid var(--error-bg-active);
             color: var(--error);
         }
 
@@ -848,7 +941,7 @@ HTML_PAGE = '''<!DOCTYPE html>
 
         .progress-fill {
             height: 100%;
-            background: linear-gradient(90deg, var(--accent), #A855F7);
+            background: linear-gradient(90deg, var(--accent), var(--purple));
             border-radius: var(--radius-full);
             transition: width var(--duration-slow) var(--ease-out);
             animation: progressGlow 2s ease-in-out infinite;
@@ -858,7 +951,7 @@ HTML_PAGE = '''<!DOCTYPE html>
             display: flex;
             justify-content: space-between;
             margin-top: var(--space-1);
-            font-size: var(--text-xs);
+            font-size: var(--text-caption);
             color: var(--text-tertiary);
             font-family: var(--font-mono);
         }
@@ -896,7 +989,7 @@ HTML_PAGE = '''<!DOCTYPE html>
 
         .result-info {
             margin-top: var(--space-2);
-            font-size: var(--text-sm);
+            font-size: var(--text-footnote);
             color: var(--text-tertiary);
         }
 
@@ -906,7 +999,7 @@ HTML_PAGE = '''<!DOCTYPE html>
             padding: var(--space-1) var(--space-2);
             border-radius: var(--radius-sm);
             cursor: pointer;
-            font-size: var(--text-xs);
+            font-size: var(--text-caption);
             border: 1px solid var(--glass-border);
             transition: all var(--duration-base) var(--ease-out);
         }
@@ -953,7 +1046,7 @@ HTML_PAGE = '''<!DOCTYPE html>
         }
 
         .batch-seed {
-            font-size: var(--text-xs);
+            font-size: var(--text-caption);
             font-family: var(--font-mono);
             color: var(--text-quaternary);
             text-align: center;
@@ -962,7 +1055,7 @@ HTML_PAGE = '''<!DOCTYPE html>
 
         .btn-sm {
             padding: var(--space-1) var(--space-2);
-            font-size: var(--text-xs);
+            font-size: var(--text-caption);
             border-radius: var(--radius-sm);
         }
 
@@ -983,7 +1076,7 @@ HTML_PAGE = '''<!DOCTYPE html>
             background: var(--glass-bg);
             border: 1px solid var(--glass-border);
             border-radius: var(--radius-md);
-            font-size: var(--text-xs);
+            font-size: var(--text-caption);
             color: var(--text-tertiary);
         }
 
@@ -1010,7 +1103,7 @@ HTML_PAGE = '''<!DOCTYPE html>
         .batch-progress-item .mini-progress-fill {
             height: 100%;
             background: var(--accent);
-            transition: width 0.3s ease;
+            transition: width var(--duration-slow) var(--ease-out);
         }
 
         /* Gallery - ALL items get animations */
@@ -1098,10 +1191,10 @@ HTML_PAGE = '''<!DOCTYPE html>
         }
 
         .gallery-item .favorite-star, .gallery-item .delete-btn {
-            font-size: var(--text-sm);
+            font-size: var(--text-footnote);
             background: rgba(0, 0, 0, 0.6);
             backdrop-filter: blur(8px);
-            padding: 6px;
+            padding: var(--space-2);
             border-radius: var(--radius-sm);
             cursor: pointer;
             transition: all var(--duration-base) var(--ease-spring);
@@ -1126,7 +1219,7 @@ HTML_PAGE = '''<!DOCTYPE html>
             backdrop-filter: blur(8px);
             padding: var(--space-1) var(--space-2);
             border-radius: var(--radius-sm);
-            font-size: var(--text-xs);
+            font-size: var(--text-caption);
             font-weight: 500;
             transition: transform var(--duration-base) var(--ease-out);
         }
@@ -1151,7 +1244,7 @@ HTML_PAGE = '''<!DOCTYPE html>
         }
 
         .gallery-info-text {
-            font-size: var(--text-xs);
+            font-size: var(--text-caption);
             color: var(--text-secondary);
             display: flex;
             justify-content: space-between;
@@ -1166,7 +1259,7 @@ HTML_PAGE = '''<!DOCTYPE html>
         }
 
         .gallery-count {
-            font-size: var(--text-sm);
+            font-size: var(--text-footnote);
             color: var(--text-quaternary);
             margin-left: var(--space-2);
         }
@@ -1211,7 +1304,7 @@ HTML_PAGE = '''<!DOCTYPE html>
             position: absolute;
             top: var(--space-6);
             right: var(--space-8);
-            font-size: 24px;
+            font-size: var(--text-title2);
             color: var(--text-tertiary);
             cursor: pointer;
             transition: all var(--duration-base) var(--ease-out);
@@ -1231,10 +1324,249 @@ HTML_PAGE = '''<!DOCTYPE html>
             transform: scale(1.05);
         }
 
+        /* Modal content panel - standardized */
+        .modal-panel {
+            background: rgba(30, 30, 50, 0.98);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: var(--space-5);
+            border-radius: var(--radius-lg);
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .modal-panel-wide { max-width: 650px; max-height: 85vh; }
+        .modal-panel-compact { max-width: 500px; }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--space-4);
+        }
+        .modal-header h3 { margin: 0; font-size: var(--text-title3); }
+
+        .modal-close-btn {
+            background: none;
+            border: none;
+            color: var(--text-tertiary);
+            font-size: var(--text-title3);
+            cursor: pointer;
+            padding: var(--space-2);
+            margin: calc(-1 * var(--space-2));
+            line-height: 1;
+            transition: color var(--duration-fast);
+        }
+        .modal-close-btn:hover { color: var(--text-primary); }
+
+        .modal-description {
+            font-size: var(--text-footnote);
+            color: var(--text-secondary);
+            margin-bottom: var(--space-4);
+        }
+
+        .modal-grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: var(--space-3);
+        }
+
+        .modal-card {
+            background: rgba(255, 255, 255, 0.05);
+            padding: var(--space-3);
+            border-radius: var(--radius-md);
+        }
+
+        .modal-card h4 {
+            margin: 0 0 var(--space-2) 0;
+            font-size: var(--text-footnote);
+            color: var(--accent);
+        }
+
+        .modal-card-content {
+            font-size: var(--text-caption);
+            line-height: 1.8;
+        }
+
+        .modal-highlight {
+            padding: var(--space-3);
+            background: var(--accent-bg);
+            border: 1px solid var(--accent-bg-active);
+            border-radius: var(--radius-md);
+            margin-top: var(--space-4);
+        }
+
+        .modal-highlight h4 {
+            margin: 0 0 var(--space-2) 0;
+            font-size: var(--text-footnote);
+        }
+
+        .modal-btn-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space-2);
+        }
+
+        .modal-chip {
+            padding: var(--space-2) var(--space-3);
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: var(--text-caption);
+            transition: all var(--duration-fast);
+        }
+        .modal-chip:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .modal-actions {
+            margin-top: var(--space-4);
+            text-align: center;
+        }
+
+        .gallery-compact {
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        }
+
+        /* Form input (used in modals) */
+        .form-input {
+            width: 100%;
+            padding: var(--space-3);
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: var(--radius-md);
+            color: var(--text-primary);
+            font-size: var(--text-subhead);
+            font-family: var(--font-sans);
+            box-sizing: border-box;
+            transition: all var(--duration-base) var(--ease-out);
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .form-label {
+            font-size: var(--text-caption);
+            color: var(--text-secondary);
+            margin-bottom: var(--space-2);
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: var(--space-4);
+        }
+
+        .form-preview {
+            padding: var(--space-3);
+            background: var(--accent-bg);
+            border: 1px solid var(--accent-bg-active);
+            border-radius: var(--radius-md);
+            margin-bottom: var(--space-4);
+        }
+        .form-preview-label {
+            font-size: var(--text-caption);
+            color: var(--text-tertiary);
+            margin-bottom: var(--space-1);
+        }
+        .form-preview-text {
+            font-size: var(--text-subhead);
+            color: var(--text-primary);
+            min-height: 20px;
+        }
+
+        /* Code highlight */
+        code {
+            background: rgba(255, 255, 255, 0.08);
+            padding: var(--space-1) var(--space-2);
+            border-radius: var(--radius-sm);
+            font-family: var(--font-mono);
+            font-size: 0.9em;
+        }
+
+        /* Result container - for generated content */
+        .result-container {
+            background: var(--glass-bg);
+            border-radius: var(--radius-lg);
+            padding: var(--space-5);
+            margin-top: var(--space-4);
+        }
+
+        .result-video {
+            width: 100%;
+            border-radius: var(--radius-md);
+        }
+
+        .result-actions {
+            margin-top: var(--space-4);
+            display: flex;
+            gap: var(--space-2);
+        }
+
+        .result-actions > * {
+            flex: 1;
+            text-align: center;
+            text-decoration: none;
+        }
+
+        .result-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--space-4);
+            margin-bottom: var(--space-4);
+        }
+
+        .result-grid-item {
+            text-align: center;
+        }
+
+        .result-grid-label {
+            font-size: var(--text-footnote);
+            color: var(--text-tertiary);
+            margin-bottom: var(--space-2);
+        }
+
+        .result-grid-image {
+            width: 100%;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--glass-border);
+        }
+
+        .result-grid-image-accent {
+            border-color: var(--accent);
+        }
+
+        .result-spinner {
+            text-align: center;
+            padding: var(--space-5);
+        }
+
+        .result-spinner .spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid var(--glass-border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        .result-spinner p {
+            margin-top: var(--space-3);
+            color: var(--text-secondary);
+        }
+
+        .result-error {
+            color: var(--error);
+        }
+
         /* Examples */
         .examples {
-            margin-top: var(--space-4);
-            padding: var(--space-4);
+            margin-top: var(--space-6);
+            padding: var(--space-5);
             background: var(--glass-bg);
             backdrop-filter: blur(20px);
             border: 1px solid var(--glass-border);
@@ -1243,43 +1575,51 @@ HTML_PAGE = '''<!DOCTYPE html>
         }
 
         .examples h3 {
-            margin: 0 0 var(--space-2) 0;
-            font-size: var(--text-xs);
+            margin: 0 0 var(--space-3) 0;
+            font-size: var(--text-caption);
             color: var(--text-tertiary);
             text-transform: uppercase;
             letter-spacing: 0.08em;
             font-weight: 600;
         }
 
+        /* Prompt ideas grid - replaces inline styles */
+        .prompt-ideas-grid {
+            display: flex;
+            gap: var(--space-2);
+            flex-wrap: wrap;
+        }
+
         .example-btn {
-            display: inline-block;
-            padding: var(--space-1) var(--space-3);
+            display: inline-flex;
+            align-items: center;
+            padding: var(--space-3) var(--space-4);
             margin: var(--space-1);
             background: rgba(255, 255, 255, 0.06);
             border: 1px solid var(--glass-border);
             border-radius: var(--radius-full);
             cursor: pointer;
-            font-size: var(--text-sm);
+            font-size: var(--text-footnote);
             color: var(--text-secondary);
-            transition: all var(--duration-base) var(--ease-spring);
+            transition: all var(--duration-base) var(--ease-out);
+            min-height: 44px;  /* HIG minimum - NON-NEGOTIABLE */
         }
 
         .example-btn:hover {
             background: rgba(255, 255, 255, 0.12);
             border-color: var(--glass-border-hover);
             color: var(--text-primary);
-            transform: translateY(-2px);
         }
 
         .example-btn:active {
-            transform: scale(0.97) translateY(0);
+            transform: scale(0.97);
         }
 
         /* Advanced toggle */
         .advanced-toggle {
             color: var(--text-tertiary);
             cursor: pointer;
-            font-size: var(--text-sm);
+            font-size: var(--text-footnote);
             margin-bottom: var(--space-2);
             display: inline-flex;
             align-items: center;
@@ -1297,7 +1637,7 @@ HTML_PAGE = '''<!DOCTYPE html>
         /* Option hints - subtle helper text */
         .option-hint {
             display: block;
-            font-size: var(--text-xs);
+            font-size: var(--text-caption);
             color: var(--text-quaternary);
             margin-bottom: var(--space-2);
             line-height: 1.4;
@@ -1339,6 +1679,15 @@ HTML_PAGE = '''<!DOCTYPE html>
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
         }
 
+        .upload-area-compact {
+            padding: var(--space-4);
+            min-height: 120px;
+            margin-bottom: var(--space-4);
+        }
+        .upload-area-compact .upload-preview {
+            max-height: 100px;
+        }
+
         /* Filter tabs */
         .filter-tabs {
             display: flex;
@@ -1348,20 +1697,23 @@ HTML_PAGE = '''<!DOCTYPE html>
         }
 
         .filter-tab {
-            padding: var(--space-1) var(--space-3);
+            padding: var(--space-3) var(--space-4);
             background: var(--glass-bg);
             border: 1px solid var(--glass-border);
             border-radius: var(--radius-full);
             cursor: pointer;
-            font-size: var(--text-sm);
+            font-size: var(--text-footnote);
+            font-weight: 500;
             color: var(--text-secondary);
-            transition: all var(--duration-base) var(--ease-spring);
+            transition: all var(--duration-base) var(--ease-out);
+            min-height: 44px;  /* HIG minimum - NON-NEGOTIABLE */
+            display: inline-flex;
+            align-items: center;
         }
 
         .filter-tab:hover {
             background: var(--glass-bg-hover);
             color: var(--text-primary);
-            transform: translateY(-1px);
         }
 
         .filter-tab:active {
@@ -1369,9 +1721,10 @@ HTML_PAGE = '''<!DOCTYPE html>
         }
 
         .filter-tab.active {
-            background: var(--accent-bg);
-            border-color: rgba(10, 132, 255, 0.25);
-            color: var(--accent);
+            background: var(--accent-ring);
+            border-color: var(--accent);
+            color: var(--text-primary);
+            font-weight: 600;
         }
 
         /* Presets - Pill buttons */
@@ -1380,28 +1733,30 @@ HTML_PAGE = '''<!DOCTYPE html>
             gap: var(--space-1);
             margin-bottom: var(--space-3);
             overflow-x: auto;
-            padding-bottom: 4px;
+            padding-bottom: var(--space-1);
             -webkit-overflow-scrolling: touch;
             scrollbar-width: thin;
         }
-        .presets::-webkit-scrollbar { height: 4px; }
+        .presets::-webkit-scrollbar { height: var(--space-1); }
         .presets::-webkit-scrollbar-track { background: transparent; }
         .presets::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
 
         .preset-btn {
-            padding: 8px 16px;
+            padding: var(--space-2) var(--space-4);
             background: var(--glass-bg);
             border: 1px solid var(--glass-border);
-            border-radius: 8px;
+            border-radius: var(--radius-md);
             cursor: pointer;
-            font-size: 13px;
+            font-size: var(--text-footnote);
             color: var(--text-secondary);
             transition: all var(--duration-fast) var(--ease-out);
             white-space: nowrap;
-            flex-shrink: 0;
+            flex: 1;
+            min-width: 100px;
             min-height: 44px;
             display: inline-flex;
             align-items: center;
+            justify-content: center;
         }
 
         .preset-btn:hover {
@@ -1415,11 +1770,353 @@ HTML_PAGE = '''<!DOCTYPE html>
         }
 
         .preset-btn.active {
-            background: rgba(10, 132, 255, 0.25) !important;
-            border: 2px solid var(--accent) !important;
-            color: #fff !important;
+            background: var(--accent-bg-active);
+            border: 2px solid var(--accent);
+            color: var(--text-primary);
             font-weight: 600;
-            box-shadow: 0 0 0 1px rgba(10, 132, 255, 0.3);
+            box-shadow: 0 0 0 2px var(--accent-ring);
+        }
+
+        /* Model selector container */
+        .model-selector {
+            display: flex;
+            gap: var(--space-2);
+            margin-bottom: var(--space-4);
+        }
+
+        /* Model selector buttons - Unified with accent color */
+        .model-btn {
+            flex: 1;
+            padding: var(--space-3) var(--space-4);
+            background: var(--glass-bg);
+            border: 2px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: var(--text-footnote);
+            text-align: center;
+            transition: all var(--duration-base) var(--ease-out);
+            min-height: 56px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: var(--space-1);
+        }
+
+        .model-btn:hover {
+            background: var(--glass-bg-hover);
+            border-color: var(--glass-border-hover);
+            color: var(--text-primary);
+        }
+
+        .model-btn.active {
+            background: var(--accent-bg-active);
+            border-color: var(--accent);
+            color: var(--text-primary);
+            box-shadow: 0 0 0 2px var(--accent-ring);
+        }
+
+        .model-btn .model-title {
+            font-weight: 600;
+            font-size: var(--text-footnote);
+        }
+
+        .model-btn .model-subtitle {
+            font-size: var(--text-caption);
+            opacity: 0.7;
+        }
+
+        /* Mode buttons - Same style as model buttons */
+        .mode-btn {
+            flex: 1;
+            padding: var(--space-3) var(--space-4);
+            background: var(--glass-bg);
+            border: 2px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: var(--text-footnote);
+            text-align: center;
+            transition: all var(--duration-base) var(--ease-out);
+            min-height: 44px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-1);
+        }
+
+        .mode-btn:hover {
+            background: var(--glass-bg-hover);
+            border-color: var(--glass-border-hover);
+            color: var(--text-primary);
+        }
+
+        .mode-btn.active {
+            background: var(--accent-bg-active);
+            border-color: var(--accent);
+            color: var(--text-primary);
+            box-shadow: 0 0 0 2px var(--accent-ring);
+        }
+
+        /* Upscale buttons - Same consistent style */
+        .upscale-btn {
+            flex: 1;
+            padding: var(--space-3);
+            background: var(--glass-bg);
+            border: 2px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            color: var(--text-secondary);
+            cursor: pointer;
+            text-align: center;
+            transition: all var(--duration-base) var(--ease-out);
+        }
+
+        .upscale-btn:hover {
+            background: var(--glass-bg-hover);
+            border-color: var(--glass-border-hover);
+            color: var(--text-primary);
+        }
+
+        .upscale-btn.active {
+            background: var(--accent-bg-active);
+            border-color: var(--accent);
+            color: var(--text-primary);
+            box-shadow: 0 0 0 2px var(--accent-ring);
+        }
+
+        .upscale-hint {
+            font-size: var(--text-caption);
+            opacity: 0.7;
+        }
+
+        /* Edit mode section layout */
+        .edit-mode-section {
+            margin: var(--space-4) 0;
+        }
+
+        .edit-mode-buttons {
+            display: flex;
+            gap: var(--space-2);
+            margin-top: var(--space-3);
+            flex-wrap: wrap;
+        }
+
+        .upscale-controls {
+            display: none;
+            margin-top: var(--space-3);
+        }
+
+        .upscale-controls.show {
+            display: block;
+        }
+
+        .upscale-options {
+            display: flex;
+            gap: var(--space-3);
+        }
+
+        /* Button divider */
+        .btn-divider {
+            border-left: 1px solid var(--glass-border);
+            margin: 0 var(--space-1);
+            height: auto;
+            align-self: stretch;
+        }
+
+        /* Tertiary button - text style with subtle background */
+        .btn-tertiary {
+            padding: var(--space-3) var(--space-4);
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: var(--text-footnote);
+            transition: all var(--duration-base) var(--ease-out);
+            min-height: 44px;
+        }
+
+        .btn-tertiary:hover {
+            background: var(--glass-bg-hover);
+            border-color: var(--glass-border-hover);
+            color: var(--text-primary);
+        }
+
+        .btn-tertiary.btn-warning {
+            background: rgba(255, 159, 10, 0.1);
+            border-color: rgba(255, 159, 10, 0.3);
+            color: var(--warning);
+        }
+
+        .btn-tertiary.btn-warning:hover {
+            background: rgba(255, 159, 10, 0.2);
+            border-color: rgba(255, 159, 10, 0.5);
+        }
+
+        .btn-tertiary.btn-sm {
+            padding: var(--space-2) var(--space-3);
+            font-size: var(--text-caption);
+            min-height: auto;
+        }
+
+        /* Examples section header */
+        .examples-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--space-2);
+        }
+
+        .examples-header h3 {
+            margin: 0;
+            font-size: var(--text-subhead);
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        /* Settings page styles */
+        .settings-card {
+            background: var(--glass-bg);
+            padding: var(--space-5);
+            border-radius: var(--radius-lg);
+            margin-bottom: var(--space-5);
+            border: 1px solid var(--glass-border);
+        }
+
+        .settings-label {
+            font-size: var(--text-body);
+            margin-bottom: var(--space-4);
+            display: block;
+        }
+
+        .settings-item {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            padding: var(--space-4);
+            background: var(--glass-bg);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--glass-border);
+        }
+
+        .settings-item.active {
+            background: var(--accent-bg-subtle);
+            border-color: var(--accent-bg-active);
+        }
+
+        .settings-icon {
+            font-size: var(--text-title3);
+        }
+
+        .settings-item-title {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .settings-item-desc {
+            font-size: var(--text-footnote);
+            color: var(--text-tertiary);
+            margin-top: var(--space-1);
+        }
+
+        .settings-models {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-2);
+        }
+
+        .settings-model-item {
+            display: flex;
+            align-items: baseline;
+            gap: var(--space-3);
+            font-size: var(--text-footnote);
+            color: var(--text-secondary);
+            padding: var(--space-3) var(--space-2);
+            border-radius: var(--radius-sm);
+            transition: background var(--duration-fast) var(--ease-out);
+        }
+
+        .settings-model-item:hover {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .settings-model-item:last-child {
+            margin-bottom: 0;
+            padding-bottom: var(--space-2);
+        }
+
+        .settings-model-icon {
+            flex-shrink: 0;
+        }
+
+        .settings-model-label {
+            font-weight: 600;
+            color: var(--text-primary);
+            white-space: nowrap;
+        }
+
+        .settings-model-value {
+            color: var(--text-tertiary);
+            font-family: var(--font-mono);
+            font-size: var(--text-caption);
+        }
+
+        .settings-status {
+            padding: var(--space-4);
+            background: var(--success-bg);
+            border: 1px solid rgba(48, 209, 88, 0.3);
+            border-radius: var(--radius-md);
+            display: none;
+            margin-top: var(--space-4);
+            color: var(--success);
+            font-weight: 500;
+        }
+
+        /* Status card - for model status sections */
+        .status-card {
+            margin-top: var(--space-4);
+            padding: var(--space-5);
+            background: var(--success-bg);
+            border: 1px solid rgba(48, 209, 88, 0.3);
+            border-radius: var(--radius-lg);
+        }
+
+        .status-card h4 {
+            margin: 0 0 var(--space-3) 0;
+            font-size: var(--text-body);
+            font-weight: 600;
+        }
+
+        .status-card p {
+            font-size: var(--text-footnote);
+            color: var(--text-secondary);
+            margin-bottom: var(--space-3);
+        }
+
+        .model-list {
+            font-size: var(--text-caption);
+            color: var(--text-tertiary);
+        }
+
+        .model-list-item {
+            margin-bottom: var(--space-2);
+        }
+
+        .model-list-item strong {
+            color: var(--text-secondary);
+        }
+
+        .model-list-item .model-file {
+            margin-left: var(--space-4);
+            margin-top: var(--space-1);
+        }
+
+        .model-list-item code {
+            background: rgba(255, 255, 255, 0.08);
+            padding: var(--space-1) var(--space-2);
+            border-radius: var(--radius-sm);
+            font-family: var(--font-mono);
         }
 
         /* History dropdown */
@@ -1436,7 +2133,7 @@ HTML_PAGE = '''<!DOCTYPE html>
             border: 1px solid var(--glass-border);
             border-radius: var(--radius-md);
             cursor: pointer;
-            font-size: var(--text-sm);
+            font-size: var(--text-footnote);
             display: inline-flex;
             align-items: center;
             gap: var(--space-1);
@@ -1477,7 +2174,7 @@ HTML_PAGE = '''<!DOCTYPE html>
             border: 1px solid var(--glass-border);
             border-radius: var(--radius-md);
             color: var(--text-primary);
-            font-size: var(--text-sm);
+            font-size: var(--text-footnote);
         }
         .history-search input::placeholder { color: var(--text-quaternary); }
         .history-search input:focus { outline: none; border-color: var(--accent); }
@@ -1489,7 +2186,7 @@ HTML_PAGE = '''<!DOCTYPE html>
             padding: var(--space-4);
             text-align: center;
             color: var(--text-quaternary);
-            font-size: var(--text-sm);
+            font-size: var(--text-footnote);
         }
 
         .history-dropdown.show {
@@ -1501,7 +2198,7 @@ HTML_PAGE = '''<!DOCTYPE html>
             padding: var(--space-3) var(--space-4);
             cursor: pointer;
             border-bottom: 1px solid var(--glass-border);
-            font-size: var(--text-base);
+            font-size: var(--text-subhead);
             color: var(--text-secondary);
             transition: all var(--duration-base);
         }
@@ -1514,10 +2211,33 @@ HTML_PAGE = '''<!DOCTYPE html>
         .history-item:last-child { border-bottom: none; }
 
         .history-meta {
-            font-size: var(--text-xs);
+            font-size: var(--text-caption);
             color: var(--text-quaternary);
             margin-top: var(--space-1);
             font-family: var(--font-mono);
+        }
+
+        .history-item-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .history-item-text {
+            flex: 1;
+            cursor: pointer;
+        }
+
+        .history-item-delete {
+            cursor: pointer;
+            padding: var(--space-2);
+            opacity: 0.6;
+            transition: opacity var(--duration-fast);
+            font-size: var(--text-body);
+        }
+
+        .history-item-delete:hover {
+            opacity: 1;
         }
 
         /* Batch options */
@@ -1528,10 +2248,12 @@ HTML_PAGE = '''<!DOCTYPE html>
             margin-bottom: var(--space-3);
         }
 
-        .batch-label { font-size: var(--text-sm); color: var(--text-tertiary); }
+        .batch-label { font-size: var(--text-footnote); color: var(--text-tertiary); }
 
         .batch-input {
-            width: 80px !important;
+            width: 80px;
+            min-width: 80px;
+            max-width: 80px;
             text-align: center;
             font-family: var(--font-mono);
         }
@@ -1555,16 +2277,16 @@ HTML_PAGE = '''<!DOCTYPE html>
             border-bottom: 1px solid var(--border);
         }
         .queue-title {
-            font-size: var(--text-sm);
+            font-size: var(--text-footnote);
             font-weight: 600;
             color: var(--text-secondary);
         }
         .queue-count {
-            font-size: var(--text-xs);
+            font-size: var(--text-caption);
             font-family: var(--font-mono);
             color: var(--accent);
             background: var(--accent-bg);
-            padding: 2px 8px;
+            padding: var(--space-1) var(--space-2);
             border-radius: var(--radius-full);
         }
         .queue-list {
@@ -1577,7 +2299,7 @@ HTML_PAGE = '''<!DOCTYPE html>
             gap: var(--space-2);
             padding: var(--space-2) var(--space-3);
             border-bottom: 1px solid var(--border);
-            font-size: var(--text-sm);
+            font-size: var(--text-footnote);
         }
         .queue-item:last-child { border-bottom: none; }
         .queue-item.processing {
@@ -1595,7 +2317,7 @@ HTML_PAGE = '''<!DOCTYPE html>
             color: var(--text-secondary);
         }
         .queue-item-settings {
-            font-size: var(--text-xs);
+            font-size: var(--text-caption);
             font-family: var(--font-mono);
             color: var(--text-quaternary);
         }
@@ -1615,7 +2337,7 @@ HTML_PAGE = '''<!DOCTYPE html>
         .queue-btn {
             flex: 1;
             padding: var(--space-1) var(--space-2);
-            font-size: var(--text-xs);
+            font-size: var(--text-caption);
             border-radius: var(--radius-md);
             cursor: pointer;
             border: none;
@@ -1664,13 +2386,13 @@ HTML_PAGE = '''<!DOCTYPE html>
         }
 
         .split-compare-title {
-            font-size: var(--text-lg);
+            font-size: var(--text-body);
             font-weight: 600;
             color: var(--text-primary);
         }
 
         .split-compare-hint {
-            font-size: var(--text-sm);
+            font-size: var(--text-footnote);
             color: var(--text-tertiary);
             flex: 1;
         }
@@ -1702,12 +2424,12 @@ HTML_PAGE = '''<!DOCTYPE html>
             background: var(--accent);
             color: white;
             font-weight: 700;
-            font-size: var(--text-sm);
+            font-size: var(--text-footnote);
             border-radius: var(--radius-sm);
         }
 
         .split-panel-title {
-            font-size: var(--text-sm);
+            font-size: var(--text-footnote);
             font-weight: 500;
             color: var(--text-secondary);
         }
@@ -1741,7 +2463,7 @@ HTML_PAGE = '''<!DOCTYPE html>
 
         .split-placeholder {
             color: var(--text-quaternary);
-            font-size: var(--text-sm);
+            font-size: var(--text-footnote);
         }
 
         .split-divider {
@@ -1756,7 +2478,7 @@ HTML_PAGE = '''<!DOCTYPE html>
             margin-bottom: var(--space-4);
             padding: var(--space-4);
             background: var(--accent-bg);
-            border: 1px solid rgba(10, 132, 255, 0.25);
+            border: 1px solid var(--accent-bg-active);
             border-radius: var(--radius-lg);
         }
 
@@ -1768,19 +2490,21 @@ HTML_PAGE = '''<!DOCTYPE html>
         }
 
         .compare-title {
-            font-size: var(--text-sm);
+            font-size: var(--text-footnote);
             color: var(--text-secondary);
         }
 
         .compare-exit-btn {
-            padding: var(--space-1) var(--space-3) !important;
-            background: var(--error) !important;
-            font-size: var(--text-sm) !important;
-            box-shadow: none !important;
+            padding: var(--space-2) var(--space-3);
+            background: var(--error-bg-hover);
+            color: var(--error);
+            border: 1px solid var(--error-border);
+            font-size: var(--text-footnote);
+            box-shadow: none;
         }
 
         .compare-exit-btn:hover {
-            background: #ff5a50 !important;
+            background: var(--error-bg-active);
         }
 
         .compare-slots {
@@ -1798,7 +2522,7 @@ HTML_PAGE = '''<!DOCTYPE html>
             align-items: center;
             justify-content: center;
             color: var(--text-quaternary);
-            font-size: var(--text-sm);
+            font-size: var(--text-footnote);
             overflow: hidden;
             background: rgba(0, 0, 0, 0.15);
             transition: all var(--duration-base) var(--ease-out);
@@ -1825,7 +2549,7 @@ HTML_PAGE = '''<!DOCTYPE html>
             backdrop-filter: blur(8px);
             padding: var(--space-1) var(--space-2);
             border-radius: var(--radius-sm);
-            font-size: var(--text-xs);
+            font-size: var(--text-caption);
             color: var(--text-secondary);
             white-space: nowrap;
             overflow: hidden;
@@ -1833,6 +2557,13 @@ HTML_PAGE = '''<!DOCTYPE html>
         }
 
         /* Comparison view (result page) */
+        .comparison-title {
+            text-align: center;
+            margin-bottom: var(--space-4);
+            font-size: var(--text-title3);
+            font-weight: 600;
+        }
+
         .comparison {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -1855,7 +2586,7 @@ HTML_PAGE = '''<!DOCTYPE html>
 
         .comparison-label {
             margin-bottom: var(--space-2);
-            font-size: var(--text-xs);
+            font-size: var(--text-caption);
             color: var(--text-tertiary);
             text-transform: uppercase;
             letter-spacing: 0.08em;
@@ -1864,8 +2595,8 @@ HTML_PAGE = '''<!DOCTYPE html>
 
         /* Refiner buttons */
         .refine-btn {
-            font-size: var(--text-sm) !important;
-            padding: var(--space-2) var(--space-3) !important;
+            font-size: var(--text-footnote);
+            padding: var(--space-2) var(--space-3);
         }
 
         /* Scrollbar styling - Thin Apple style */
@@ -1898,15 +2629,15 @@ HTML_PAGE = '''<!DOCTYPE html>
     <!-- Toast Container -->
     <div id="toastContainer" class="toast-container"></div>
 
-    <h1>🎨 Qwen Image Generator</h1>
+    <h1>Qwen Image Generator</h1>
     <p class="subtitle">Powered by Qwen-Image-2512 on your Mac <span class="connection-status"><span id="statusDot" class="status-dot checking"></span><span id="statusText">Checking...</span></span></p>
 
     <div class="tabs">
-        <button class="tab active" onclick="showTab('generate')">✨ Generate</button>
-        <button class="tab" onclick="showTab('edit')">🖌️ Edit</button>
-        <button class="tab" onclick="showTab('video')">🎬 Video</button>
-        <button class="tab" onclick="showTab('gallery')">🖼️ Gallery</button>
-        <button class="tab" onclick="showTab('settings')">⚙️ Settings</button>
+        <button class="tab active" onclick="showTab('generate')">Generate</button>
+        <button class="tab" onclick="showTab('edit')">Edit</button>
+        <button class="tab" onclick="showTab('video')">Video</button>
+        <button class="tab" onclick="showTab('gallery')">Gallery</button>
+        <button class="tab" onclick="showTab('settings')">Settings</button>
     </div>
 
     <!-- Generate Tab -->
@@ -1914,14 +2645,14 @@ HTML_PAGE = '''<!DOCTYPE html>
         <div class="input-section">
             <!-- Model Selection -->
             <label>Model</label>
-            <div style="display: flex; gap: 8px; margin-bottom: var(--space-4);">
-                <button type="button" id="imageModelQwen" class="model-btn active" onclick="selectImageModel('qwen')" style="flex: 1; padding: 10px 12px; background: rgba(102, 126, 234, 0.4); border: 2px solid #667eea; border-radius: var(--radius-md); color: #fff; cursor: pointer; font-size: 12px; text-align: center;">
-                    <div style="font-weight: 600;">Qwen</div>
-                    <div style="font-size: 10px; opacity: 0.8;">Lightning/Quality</div>
+            <div class="model-selector">
+                <button type="button" id="imageModelQwen" class="model-btn active" onclick="selectImageModel('qwen')">
+                    <span class="model-title">Qwen</span>
+                    <span class="model-subtitle">Lightning/Quality</span>
                 </button>
-                <button type="button" id="imageModelZImage" class="model-btn" onclick="selectImageModel('zimage')" style="flex: 1; padding: 10px 12px; background: rgba(255,255,255,0.1); border: 2px solid transparent; border-radius: var(--radius-md); color: #fff; cursor: pointer; font-size: 12px; text-align: center;">
-                    <div style="font-weight: 600;">Z-Image Turbo</div>
-                    <div style="font-size: 10px; opacity: 0.8;">Fast Photorealistic</div>
+                <button type="button" id="imageModelZImage" class="model-btn" onclick="selectImageModel('zimage')">
+                    <span class="model-title">Z-Image Turbo</span>
+                    <span class="model-subtitle">Fast Photorealistic</span>
                 </button>
             </div>
 
@@ -1929,32 +2660,31 @@ HTML_PAGE = '''<!DOCTYPE html>
             <div id="qwenPresets">
                 <label>Quick Presets</label>
                 <div class="presets">
-                    <span class="preset-btn active" onclick="applyPreset('quick')" data-preset="quick">🚀 Fast</span>
-                    <span class="preset-btn" onclick="applyPreset('quality')" data-preset="quality">✨ Quality</span>
-                    <span class="preset-btn" onclick="applyPreset('portrait')" data-preset="portrait">👤 Portrait</span>
-                    <span class="preset-btn" onclick="applyPreset('landscape')" data-preset="landscape">🏞️ Landscape</span>
+                    <span class="preset-btn active" onclick="applyPreset('quick')" data-preset="quick">Fast</span>
+                    <span class="preset-btn" onclick="applyPreset('quality')" data-preset="quality">Quality</span>
+                    <span class="preset-btn" onclick="applyPreset('portrait')" data-preset="portrait">Portrait</span>
+                    <span class="preset-btn" onclick="applyPreset('landscape')" data-preset="landscape">Landscape</span>
                 </div>
             </div>
 
             <label for="prompt">Describe your image</label>
-            <div style="position: relative;">
+            <div class="textarea-container">
                 <textarea id="prompt" placeholder="A majestic dragon flying over mountains at sunset..."></textarea>
-                <!-- Floating AI buttons - 44px touch targets -->
-                <div style="position: absolute; right: 4px; top: 4px; display: flex; flex-direction: row; gap: 4px;">
-                    <button type="button" onclick="refineLocal('refine')" title="Refine" class="ai-float-btn">✨</button>
-                    <button type="button" onclick="refineLocal('expand')" title="Expand" class="ai-float-btn">📝</button>
-                    <button type="button" onclick="refineLocal('style')" title="Style" class="ai-float-btn">🎲</button>
+                <div class="ai-buttons">
+                    <button type="button" onclick="refineLocal('refine')" title="Refine with AI" class="ai-float-btn">AI</button>
+                    <button type="button" onclick="refineLocal('expand')" title="Expand prompt" class="ai-float-btn">+</button>
+                    <button type="button" onclick="refineLocal('style')" title="Add style" class="ai-float-btn">S</button>
                 </div>
             </div>
 
-            <div class="advanced-toggle" onclick="toggleAdvanced()">▶ Advanced Options</div>
+            <div class="advanced-toggle" onclick="toggleAdvanced()">Advanced Options</div>
             <div class="advanced-section" id="advancedSection">
                 <!-- Prompt History -->
                 <div class="option-group" style="margin-bottom: var(--space-3);">
                     <label>Prompt History</label>
                     <span class="option-hint">Click to reuse a previous prompt</span>
                     <div class="history-container" style="margin-top: var(--space-1); display: inline-block;">
-                        <div class="history-btn" onclick="toggleHistory()">📜 Recent Prompts <span id="historyCount">(0)</span></div>
+                        <div class="history-btn" onclick="toggleHistory()">Recent Prompts <span id="historyCount">(0)</span></div>
                         <div class="history-dropdown" id="historyDropdown"></div>
                     </div>
                 </div>
@@ -1962,7 +2692,7 @@ HTML_PAGE = '''<!DOCTYPE html>
                 <div class="option-group" style="margin-bottom: var(--space-3);">
                     <label for="negativePrompt">Negative Prompt</label>
                     <span class="option-hint">Describe what you DON'T want in the image</span>
-                    <textarea id="negativePrompt" placeholder="e.g., blurry, ugly, distorted, low quality" style="height: 60px;"></textarea>
+                    <textarea id="negativePrompt" placeholder="e.g., blurry, ugly, distorted, low quality" class="textarea-short"></textarea>
                 </div>
 
                 <div class="options-row">
@@ -1991,7 +2721,7 @@ HTML_PAGE = '''<!DOCTYPE html>
                     </div>
                     <div class="option-group" style="flex: 0 0 auto; min-width: auto;">
                         <label>Batch</label>
-                        <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="display: flex; align-items: center; gap: var(--space-2);">
                             <input type="number" id="batchSize" class="batch-input" value="1" min="1" max="4" title="Generate multiple at once">
                         </div>
                     </div>
@@ -2002,8 +2732,8 @@ HTML_PAGE = '''<!DOCTYPE html>
                 <div class="option-group" id="modeSelector">
                     <label>Mode</label>
                     <select id="mode" onchange="updateEstimate(); clearPresetHighlight();">
-                        <option value="lightning">⚡ Lightning (Fast)</option>
-                        <option value="normal">🎨 Normal (Quality)</option>
+                        <option value="lightning">Lightning</option>
+                        <option value="normal">Quality</option>
                     </select>
                 </div>
                 <div class="option-group">
@@ -2018,16 +2748,16 @@ HTML_PAGE = '''<!DOCTYPE html>
                 <div class="option-group">
                     <label>Aspect</label>
                     <select id="aspect" onchange="clearPresetHighlight();">
-                        <option value="square">◻️ Square</option>
-                        <option value="landscape">▬ Landscape</option>
-                        <option value="portrait">▮ Portrait</option>
+                        <option value="square">Square</option>
+                        <option value="landscape">Landscape</option>
+                        <option value="portrait">Portrait</option>
                     </select>
                 </div>
             </div>
-            <div class="time-estimate" id="timeEstimate">⏱️ Estimated: ~1 minute</div>
+            <div class="time-estimate" id="timeEstimate">Estimated: ~1 minute</div>
 
             <div class="btn-row">
-                <button id="generateBtn" onclick="generate()">✨ Generate</button>
+                <button id="generateBtn" onclick="generate()">Generate</button>
                 <button id="cancelBtn" class="btn-cancel" onclick="cancelGeneration()" style="display:none;">Cancel</button>
                 <button class="btn-secondary" id="addToQueueBtn" onclick="addToQueue()">Queue</button>
                 <button class="btn-secondary" id="regenerateBtn" onclick="regenerate()" disabled>Redo</button>
@@ -2037,13 +2767,13 @@ HTML_PAGE = '''<!DOCTYPE html>
             <!-- Generation Queue -->
             <div id="queueContainer" class="queue-container">
                 <div class="queue-header">
-                    <span class="queue-title">📋 Generation Queue</span>
+                    <span class="queue-title">Generation Queue</span>
                     <span class="queue-count" id="queueCount">0</span>
                 </div>
                 <div class="queue-list" id="queueList"></div>
                 <div class="queue-actions">
-                    <button class="queue-btn queue-btn-start" id="queueStartBtn" onclick="processQueue()" disabled>▶ Start Queue</button>
-                    <button class="queue-btn queue-btn-clear" onclick="clearQueue()">🗑️ Clear All</button>
+                    <button class="queue-btn queue-btn-start" id="queueStartBtn" onclick="processQueue()" disabled>Start Queue</button>
+                    <button class="queue-btn queue-btn-clear" onclick="clearQueue()">Clear All</button>
                 </div>
             </div>
         </div>
@@ -2051,9 +2781,9 @@ HTML_PAGE = '''<!DOCTYPE html>
         <!-- Split Compare Mode -->
         <div id="splitCompareMode" class="split-compare-container">
             <div class="split-compare-header">
-                <span class="split-compare-title">⚔️ Split Compare Mode</span>
+                <span class="split-compare-title">Split Compare Mode</span>
                 <span class="split-compare-hint">Write prompts for each side, then generate one at a time</span>
-                <button onclick="toggleSplitCompare()" class="compare-exit-btn">✕ Exit</button>
+                <button onclick="toggleSplitCompare()" class="compare-exit-btn">Exit</button>
             </div>
             <div class="split-compare-panels">
                 <div class="split-panel" id="splitPanelA">
@@ -2062,7 +2792,7 @@ HTML_PAGE = '''<!DOCTYPE html>
                         <span class="split-panel-title">Left Side</span>
                     </div>
                     <textarea id="promptA" class="split-prompt" placeholder="Enter prompt for left image..."></textarea>
-                    <button onclick="generateSplit('A')" class="split-generate-btn" id="generateBtnA">✨ Generate A</button>
+                    <button onclick="generateSplit('A')" class="split-generate-btn" id="generateBtnA">Generate A</button>
                     <div class="split-result" id="resultA">
                         <div class="split-placeholder">Result will appear here</div>
                     </div>
@@ -2074,7 +2804,7 @@ HTML_PAGE = '''<!DOCTYPE html>
                         <span class="split-panel-title">Right Side</span>
                     </div>
                     <textarea id="promptB" class="split-prompt" placeholder="Enter prompt for right image..."></textarea>
-                    <button onclick="generateSplit('B')" class="split-generate-btn" id="generateBtnB">✨ Generate B</button>
+                    <button onclick="generateSplit('B')" class="split-generate-btn" id="generateBtnB">Generate B</button>
                     <div class="split-result" id="resultB">
                         <div class="split-placeholder">Result will appear here</div>
                     </div>
@@ -2097,19 +2827,19 @@ HTML_PAGE = '''<!DOCTYPE html>
         <div id="result"></div>
 
         <div class="examples">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <h3 style="margin: 0;">💡 Prompt Ideas</h3>
-                <button type="button" onclick="showGenerateTemplates()" style="padding: 6px 12px; background: rgba(72, 187, 120, 0.2); border: 1px solid rgba(72, 187, 120, 0.5); border-radius: 6px; color: #fff; cursor: pointer; font-size: 12px;">📋 Templates</button>
+            <div class="examples-header">
+                <h3>Prompt Ideas</h3>
+                <button type="button" class="btn-tertiary btn-sm" onclick="showGenerateTemplates()">Templates</button>
             </div>
-            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-                <span class="example-btn" onclick="setPrompt('A cute robot cat in a cozy coffee shop, warm lighting, digital art')">🤖 Robot Cat</span>
-                <span class="example-btn" onclick="setPrompt('Hyperrealistic portrait of a woman with freckles, natural lighting, sharp focus, professional photography')">👤 Portrait</span>
-                <span class="example-btn" onclick="setPrompt('Japanese garden with cherry blossoms and wooden bridge, watercolor style')">🌸 Japanese Garden</span>
-                <span class="example-btn" onclick="setPrompt('Cyberpunk city at night with neon signs and rain reflections, cinematic')">🌃 Cyberpunk</span>
-                <span class="example-btn" onclick="setPrompt('Magical forest with glowing mushrooms and fireflies, fantasy art, detailed')">🍄 Magic Forest</span>
-                <span class="example-btn" onclick="setPrompt('Majestic dragon flying over mountains at sunset, epic fantasy, highly detailed')">🐉 Dragon</span>
-                <span class="example-btn" onclick="setPrompt('Cozy cabin in snowy mountains, warm light from windows, winter atmosphere')">🏔️ Winter Cabin</span>
-                <span class="example-btn" onclick="setPrompt('Futuristic spaceship interior, sci-fi, volumetric lighting, ultra detailed')">🚀 Spaceship</span>
+            <div class="prompt-ideas-grid">
+                <span class="example-btn" onclick="setPrompt('A cute robot cat in a cozy coffee shop, warm lighting, digital art')">Robot Cat</span>
+                <span class="example-btn" onclick="setPrompt('Hyperrealistic portrait of a woman with freckles, natural lighting, sharp focus, professional photography')">Portrait</span>
+                <span class="example-btn" onclick="setPrompt('Japanese garden with cherry blossoms and wooden bridge, watercolor style')">Japanese Garden</span>
+                <span class="example-btn" onclick="setPrompt('Cyberpunk city at night with neon signs and rain reflections, cinematic')">Cyberpunk</span>
+                <span class="example-btn" onclick="setPrompt('Magical forest with glowing mushrooms and fireflies, fantasy art, detailed')">Magic Forest</span>
+                <span class="example-btn" onclick="setPrompt('Majestic dragon flying over mountains at sunset, epic fantasy, highly detailed')">Dragon</span>
+                <span class="example-btn" onclick="setPrompt('Cozy cabin in snowy mountains, warm light from windows, winter atmosphere')">Winter Cabin</span>
+                <span class="example-btn" onclick="setPrompt('Futuristic spaceship interior, sci-fi, volumetric lighting, ultra detailed')">Spaceship</span>
             </div>
         </div>
     </div>
@@ -2118,38 +2848,38 @@ HTML_PAGE = '''<!DOCTYPE html>
     <div id="tab-edit" class="tab-content">
         <div class="input-section">
             <label>Upload Image to Edit</label>
-            <div style="display: flex; gap: var(--space-2); margin-bottom: var(--space-2);">
-                <button type="button" class="btn-secondary" style="flex: 1;" onclick="document.getElementById('imageUpload').click()">📁 Upload File</button>
-                <button type="button" class="btn-secondary" style="flex: 1;" onclick="openGalleryPicker()">🖼️ From Gallery</button>
+            <div class="btn-row-fill">
+                <button type="button" class="btn-secondary" onclick="document.getElementById('imageUpload').click()">Upload File</button>
+                <button type="button" class="btn-secondary" onclick="openGalleryPicker()">From Gallery</button>
             </div>
             <div class="upload-area" id="uploadArea" onclick="document.getElementById('imageUpload').click()">
-                <div id="uploadPlaceholder">📁 Click or drag image here</div>
-                <img id="uploadPreview" class="upload-preview" style="display:none;">
-                <input type="file" id="imageUpload" accept="image/*" style="display:none;" onchange="handleUpload(event)">
+                <div id="uploadPlaceholder">Click or drag image here</div>
+                <img id="uploadPreview" class="upload-preview hidden">
+                <input type="file" id="imageUpload" accept="image/*" class="hidden" onchange="handleUpload(event)">
             </div>
 
             <label for="editPrompt">What changes do you want?</label>
             <textarea id="editPrompt" placeholder="e.g., Change the sky to sunset, Add a rainbow, Make it look like winter"></textarea>
 
             <!-- Edit Mode Selection - Simple Row of Buttons -->
-            <div style="margin: 15px 0;">
+            <div class="edit-mode-section">
                 <label>Edit Mode & Tools</label>
-                <div style="display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;">
-                    <button type="button" id="modeStandard" class="mode-btn active" onclick="selectEditMode('standard')" style="padding: 10px 16px; background: rgba(102, 126, 234, 0.4); border: 2px solid #667eea; border-radius: 6px; color: #fff; cursor: pointer; font-size: 13px;">🖌️ Standard</button>
-                    <button type="button" id="modeAngles" class="mode-btn" onclick="selectEditMode('angles')" style="padding: 10px 16px; background: rgba(255,255,255,0.1); border: 2px solid transparent; border-radius: 6px; color: #fff; cursor: pointer; font-size: 13px;">📐 Angles</button>
-                    <button type="button" id="modeUpscale" class="mode-btn" onclick="selectEditMode('upscale')" style="padding: 10px 16px; background: rgba(255,255,255,0.1); border: 2px solid transparent; border-radius: 6px; color: #fff; cursor: pointer; font-size: 13px;">🔍 Upscale</button>
-                    <span style="border-left: 1px solid rgba(255,255,255,0.2); margin: 0 4px;"></span>
-                    <button type="button" onclick="showEditCheatsheet()" style="padding: 10px 16px; background: rgba(72, 187, 120, 0.2); border: 1px solid rgba(72, 187, 120, 0.5); border-radius: 6px; color: #fff; cursor: pointer; font-size: 13px;">📋 Templates</button>
-                    <button type="button" id="angleCheatBtn" onclick="showAngleCheatsheet()" style="padding: 10px 16px; background: rgba(237, 137, 54, 0.2); border: 1px solid rgba(237, 137, 54, 0.5); border-radius: 6px; color: #fff; cursor: pointer; font-size: 13px; display: none;">📐 Angle Guide</button>
+                <div class="edit-mode-buttons">
+                    <button type="button" id="modeStandard" class="mode-btn active" onclick="selectEditMode('standard')">Standard</button>
+                    <button type="button" id="modeAngles" class="mode-btn" onclick="selectEditMode('angles')">Angles</button>
+                    <button type="button" id="modeUpscale" class="mode-btn" onclick="selectEditMode('upscale')">Upscale</button>
+                    <span class="btn-divider"></span>
+                    <button type="button" class="btn-tertiary" onclick="showEditCheatsheet()">Templates</button>
+                    <button type="button" id="angleCheatBtn" class="btn-tertiary btn-warning hidden" onclick="showAngleCheatsheet()">Angle Guide</button>
                 </div>
                 <!-- Upscale resolution options (shown when upscale mode selected) -->
-                <div id="upscaleControls" style="display: none; margin-top: 12px;">
-                    <div style="display: flex; gap: 10px;">
-                        <button type="button" class="upscale-btn active" data-res="2K" onclick="selectUpscale('2K')" style="flex: 1; padding: 12px; text-align: center; background: rgba(102, 126, 234, 0.4); border: 2px solid #667eea; border-radius: 6px; cursor: pointer; color: #fff;">
-                            <strong>2K</strong> <span style="font-size: 11px; opacity: 0.7;">~2048px</span>
+                <div id="upscaleControls" class="upscale-controls">
+                    <div class="upscale-options">
+                        <button type="button" class="upscale-btn active" data-res="2K" onclick="selectUpscale('2K')">
+                            <strong>2K</strong> <span class="upscale-hint">~2048px</span>
                         </button>
-                        <button type="button" class="upscale-btn" data-res="4K" onclick="selectUpscale('4K')" style="flex: 1; padding: 12px; text-align: center; background: rgba(255,255,255,0.1); border: 2px solid transparent; border-radius: 6px; cursor: pointer; color: #fff;">
-                            <strong>4K</strong> <span style="font-size: 11px; opacity: 0.7;">~4096px</span>
+                        <button type="button" class="upscale-btn" data-res="4K" onclick="selectUpscale('4K')">
+                            <strong>4K</strong> <span class="upscale-hint">~4096px</span>
                         </button>
                     </div>
                     <input type="hidden" id="upscaleRes" value="2K">
@@ -2160,7 +2890,7 @@ HTML_PAGE = '''<!DOCTYPE html>
                 <input type="hidden" id="angleDistance" value="medium">
             </div>
 
-            <button onclick="editImage()" id="editBtn">🖌️ Apply Edit</button>
+            <button onclick="editImage()" id="editBtn">Apply Edit</button>
         </div>
         <div id="editResult"></div>
     </div>
@@ -2170,59 +2900,59 @@ HTML_PAGE = '''<!DOCTYPE html>
         <div class="input-section">
             <!-- Video Mode Selection -->
             <label>Video Generation Mode</label>
-            <div style="display: flex; gap: 8px; margin-bottom: var(--space-4);">
-                <button type="button" id="videoModeT2V" class="mode-btn active" onclick="selectVideoMode('t2v')" style="flex: 1; padding: 12px 16px; background: rgba(102, 126, 234, 0.4); border: 2px solid #667eea; border-radius: var(--radius-md); color: #fff; cursor: pointer; font-size: 13px;">
-                    <strong>📝 Text to Video</strong><br>
-                    <span style="font-size: 11px; opacity: 0.7;">Generate from description</span>
+            <div class="model-selector">
+                <button type="button" id="videoModeT2V" class="model-btn active" onclick="selectVideoMode('t2v')">
+                    <span class="model-title">Text to Video</span>
+                    <span class="model-subtitle">Generate from description</span>
                 </button>
-                <button type="button" id="videoModeI2V" class="mode-btn" onclick="selectVideoMode('i2v')" style="flex: 1; padding: 12px 16px; background: rgba(255,255,255,0.1); border: 2px solid transparent; border-radius: var(--radius-md); color: #fff; cursor: pointer; font-size: 13px;">
-                    <strong>🖼️ Image to Video</strong><br>
-                    <span style="font-size: 11px; opacity: 0.7;">Animate an image</span>
+                <button type="button" id="videoModeI2V" class="model-btn" onclick="selectVideoMode('i2v')">
+                    <span class="model-title">Image to Video</span>
+                    <span class="model-subtitle">Animate an image</span>
                 </button>
             </div>
 
             <!-- Video Model Selection -->
             <label>Model</label>
-            <div style="display: flex; gap: 8px; margin-bottom: var(--space-4);">
-                <button type="button" id="videoModelLTX" class="model-btn active" onclick="selectVideoModel('ltx')" style="flex: 1; padding: 10px 12px; background: rgba(102, 126, 234, 0.4); border: 2px solid #667eea; border-radius: var(--radius-md); color: #fff; cursor: pointer; font-size: 12px; text-align: center;">
-                    <strong>LTX 2B</strong><br>
-                    <span style="font-size: 10px; opacity: 0.7;">Fast (~30s)</span>
+            <div class="model-selector">
+                <button type="button" id="videoModelLTX" class="model-btn active" onclick="selectVideoModel('ltx')">
+                    <span class="model-title">LTX 2B</span>
+                    <span class="model-subtitle">Fast (~30s)</span>
                 </button>
-                <button type="button" id="videoModelHunyuan" class="model-btn" onclick="selectVideoModel('hunyuan')" style="flex: 1; padding: 10px 12px; background: rgba(255,255,255,0.1); border: 2px solid transparent; border-radius: var(--radius-md); color: #fff; cursor: pointer; font-size: 12px; text-align: center;">
-                    <strong>Hunyuan 13B</strong><br>
-                    <span style="font-size: 10px; opacity: 0.7;">Quality (~3min)</span>
+                <button type="button" id="videoModelHunyuan" class="model-btn" onclick="selectVideoModel('hunyuan')">
+                    <span class="model-title">Hunyuan 13B</span>
+                    <span class="model-subtitle">Quality (~3min)</span>
                 </button>
-                <button type="button" id="videoModelWan" class="model-btn" onclick="selectVideoModel('wan')" style="flex: 1; padding: 10px 12px; background: rgba(255,255,255,0.1); border: 2px solid transparent; border-radius: var(--radius-md); color: #fff; cursor: pointer; font-size: 12px; text-align: center;">
-                    <strong>Wan 14B</strong><br>
-                    <span style="font-size: 10px; opacity: 0.7;">Best (~5min)</span>
+                <button type="button" id="videoModelWan" class="model-btn" onclick="selectVideoModel('wan')">
+                    <span class="model-title">Wan 14B</span>
+                    <span class="model-subtitle">Best (~5min)</span>
                 </button>
             </div>
 
             <!-- Image upload for I2V (hidden by default) -->
-            <div id="videoImageUploadSection" style="display: none; margin-bottom: var(--space-4);">
+            <div id="videoImageUploadSection" class="hidden">
                 <label>Start Image</label>
-                <div style="display: flex; gap: var(--space-2); margin-bottom: var(--space-2);">
-                    <button type="button" class="btn-secondary" style="flex: 1;" onclick="document.getElementById('videoImageUpload').click()">📁 Upload File</button>
-                    <button type="button" class="btn-secondary" style="flex: 1;" onclick="openVideoGalleryPicker()">🖼️ From Gallery</button>
+                <div class="btn-row-fill">
+                    <button type="button" class="btn-secondary" onclick="document.getElementById('videoImageUpload').click()">Upload File</button>
+                    <button type="button" class="btn-secondary" onclick="openVideoGalleryPicker()">From Gallery</button>
                 </div>
-                <div class="upload-area" id="videoUploadArea" onclick="document.getElementById('videoImageUpload').click()" style="height: 120px;">
-                    <div id="videoUploadPlaceholder">📁 Click or drag image here</div>
-                    <img id="videoUploadPreview" class="upload-preview" style="display:none; max-height: 100px;">
-                    <input type="file" id="videoImageUpload" accept="image/*" style="display:none;" onchange="handleVideoUpload(event)">
+                <div class="upload-area upload-area-compact" id="videoUploadArea" onclick="document.getElementById('videoImageUpload').click()">
+                    <div id="videoUploadPlaceholder">Click or drag image here</div>
+                    <img id="videoUploadPreview" class="upload-preview hidden">
+                    <input type="file" id="videoImageUpload" accept="image/*" class="hidden" onchange="handleVideoUpload(event)">
                 </div>
             </div>
 
             <label for="videoPrompt">Describe your video</label>
-            <div style="position: relative;">
+            <div class="textarea-container">
                 <textarea id="videoPrompt" placeholder="A majestic eagle soaring through clouds at golden hour, cinematic drone shot..."></textarea>
-                <div style="position: absolute; right: 4px; top: 4px; display: flex; flex-direction: row; gap: 4px;">
-                    <button type="button" onclick="refineVideoPrompt('refine')" title="Refine" class="ai-float-btn">✨</button>
-                    <button type="button" onclick="refineVideoPrompt('expand')" title="Expand" class="ai-float-btn">📝</button>
+                <div class="ai-buttons">
+                    <button type="button" onclick="refineVideoPrompt('refine')" title="Refine with AI" class="ai-float-btn">AI</button>
+                    <button type="button" onclick="refineVideoPrompt('expand')" title="Expand prompt" class="ai-float-btn">+</button>
                 </div>
             </div>
 
             <!-- Video Settings -->
-            <div class="options-row" style="margin-top: var(--space-3);">
+            <div class="options-row-spaced">
                 <div class="option-group">
                     <label>Resolution</label>
                     <select id="videoResolution" onchange="updateVideoEstimate()">
@@ -2241,24 +2971,24 @@ HTML_PAGE = '''<!DOCTYPE html>
                 </div>
                 <div class="option-group">
                     <label>Seed</label>
-                    <input type="number" id="videoSeed" placeholder="Random" style="width: 100%;">
+                    <input type="number" id="videoSeed" placeholder="Random">
                 </div>
             </div>
 
             <!-- Advanced Video Options -->
-            <div class="advanced-toggle" onclick="toggleVideoAdvanced()">▶ Advanced Options</div>
-            <div class="advanced-section" id="videoAdvancedSection" style="display: none;">
+            <div class="advanced-toggle" onclick="toggleVideoAdvanced()">Advanced Options</div>
+            <div class="advanced-section" id="videoAdvancedSection">
                 <div class="option-group" style="margin-bottom: var(--space-3);">
                     <label for="videoNegativePrompt">Negative Prompt</label>
                     <span class="option-hint">What to avoid in the video</span>
-                    <textarea id="videoNegativePrompt" placeholder="blurry, low quality, distorted, watermark, static, jittery" style="height: 60px;"></textarea>
+                    <textarea id="videoNegativePrompt" placeholder="blurry, low quality, distorted, watermark, static, jittery" class="textarea-short"></textarea>
                 </div>
             </div>
 
-            <div class="time-estimate" id="videoTimeEstimate">⏱️ Estimated: ~4-5 minutes (480p, 5 sec)</div>
+            <div class="time-estimate" id="videoTimeEstimate">Estimated: ~4-5 minutes (480p, 5 sec)</div>
 
             <div class="btn-row">
-                <button id="videoGenerateBtn" onclick="generateVideo()">🎬 Generate Video</button>
+                <button id="videoGenerateBtn" onclick="generateVideo()">Generate Video</button>
                 <button id="videoCancelBtn" class="btn-cancel" onclick="cancelVideoGeneration()" style="display:none;">Cancel</button>
             </div>
 
@@ -2280,36 +3010,34 @@ HTML_PAGE = '''<!DOCTYPE html>
 
         <!-- Video Prompt Ideas -->
         <div class="examples">
-            <h3 style="margin-bottom: 8px;">💡 Video Prompt Ideas</h3>
-            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-                <span class="example-btn" onclick="setVideoPrompt('A majestic eagle soaring through clouds at golden hour, cinematic aerial shot')">🦅 Eagle Flight</span>
-                <span class="example-btn" onclick="setVideoPrompt('Ocean waves crashing on rocky shore at sunset, slow motion, dramatic lighting')">🌊 Ocean Waves</span>
-                <span class="example-btn" onclick="setVideoPrompt('City street at night with rain reflections and neon signs, cyberpunk atmosphere')">🌃 Rainy City</span>
-                <span class="example-btn" onclick="setVideoPrompt('Timelapse of flowers blooming in a garden, soft natural lighting')">🌸 Flowers Blooming</span>
-                <span class="example-btn" onclick="setVideoPrompt('Astronaut floating in space with Earth in background, cinematic')">🚀 Space Walk</span>
-                <span class="example-btn" onclick="setVideoPrompt('Campfire burning in forest at night, sparks flying, cozy atmosphere')">🔥 Campfire</span>
+            <h3>Video Prompt Ideas</h3>
+            <div class="prompt-ideas-grid">
+                <span class="example-btn" onclick="setVideoPrompt('A majestic eagle soaring through clouds at golden hour, cinematic aerial shot')">Eagle Flight</span>
+                <span class="example-btn" onclick="setVideoPrompt('Ocean waves crashing on rocky shore at sunset, slow motion, dramatic lighting')">Ocean Waves</span>
+                <span class="example-btn" onclick="setVideoPrompt('City street at night with rain reflections and neon signs, cyberpunk atmosphere')">Rainy City</span>
+                <span class="example-btn" onclick="setVideoPrompt('Timelapse of flowers blooming in a garden, soft natural lighting')">Flowers Blooming</span>
+                <span class="example-btn" onclick="setVideoPrompt('Astronaut floating in space with Earth in background, cinematic')">Space Walk</span>
+                <span class="example-btn" onclick="setVideoPrompt('Campfire burning in forest at night, sparks flying, cozy atmosphere')">Campfire</span>
             </div>
         </div>
 
         <!-- Model Status -->
-        <div id="videoModelStatus" class="input-section" style="margin-top: var(--space-4); padding: var(--space-4); background: rgba(76, 175, 80, 0.1); border: 1px solid rgba(76, 175, 80, 0.3);">
-            <h4 style="margin-bottom: 8px;">✅ Video Models Ready</h4>
-            <p style="font-size: var(--text-sm); color: var(--text-secondary); margin-bottom: 12px;">
-                Three video generation models (Q4 GGUF quantized for M-series Macs):
-            </p>
-            <div style="font-size: var(--text-xs); color: var(--text-tertiary);">
-                <div style="margin-bottom: 8px;">
-                    <strong style="color: var(--text-secondary);">⚡ LTX 2B</strong> - Fastest (~30s)
-                    <div style="margin-left: 16px; margin-top: 2px;">• <code>ltxv-2b-distilled-Q4_K_M.gguf</code> (1.2GB)</div>
+        <div id="videoModelStatus" class="status-card">
+            <h4>Video Models Ready</h4>
+            <p>Three video generation models (Q4 GGUF quantized for M-series Macs):</p>
+            <div class="model-list">
+                <div class="model-list-item">
+                    <strong>LTX 2B</strong> - Fastest (~30s)
+                    <div class="model-file"><code>ltxv-2b-distilled-Q4_K_M.gguf</code> (1.2GB)</div>
                 </div>
-                <div style="margin-bottom: 8px;">
-                    <strong style="color: var(--text-secondary);">🎬 Hunyuan 13B</strong> - Quality (~3min)
-                    <div style="margin-left: 16px; margin-top: 2px;">• <code>hunyuan-video-t2v-Q4_K_M.gguf</code> (7.3GB)</div>
+                <div class="model-list-item">
+                    <strong>Hunyuan 13B</strong> - Quality (~3min)
+                    <div class="model-file"><code>hunyuan-video-t2v-Q4_K_M.gguf</code> (7.3GB)</div>
                 </div>
-                <div style="margin-bottom: 8px;">
-                    <strong style="color: var(--text-secondary);">🏆 Wan 14B</strong> - Best quality (~5min)
-                    <div style="margin-left: 16px; margin-top: 2px;">• <code>wan2.1-t2v-14b-Q4_K_M.gguf</code> (9.4GB)</div>
-                    <div style="margin-left: 16px;">• <code>wan2.1-i2v-14b-Q4_K_M.gguf</code> (11GB) - I2V</div>
+                <div class="model-list-item">
+                    <strong>Wan 14B</strong> - Best quality (~5min)
+                    <div class="model-file"><code>wan2.1-t2v-14b-Q4_K_M.gguf</code> (9.4GB)</div>
+                    <div class="model-file"><code>wan2.1-i2v-14b-Q4_K_M.gguf</code> (11GB) - I2V</div>
                 </div>
             </div>
         </div>
@@ -2319,17 +3047,17 @@ HTML_PAGE = '''<!DOCTYPE html>
     <div id="tab-gallery" class="tab-content">
         <div class="filter-tabs">
             <div class="filter-tab active" onclick="filterGallery('all')">All <span id="galleryCount" class="gallery-count"></span></div>
-            <div class="filter-tab" onclick="filterGallery('recent')">🕐 Recent</div>
-            <div class="filter-tab" onclick="filterGallery('favorites')">⭐ Favorites</div>
-            <div class="filter-tab" onclick="filterGallery('lightning')">⚡ Lightning</div>
-            <div class="filter-tab" onclick="filterGallery('normal')">🎨 Normal</div>
-            <div class="filter-tab" onclick="filterGallery('edit')">🖌️ Edit</div>
-            <div class="filter-tab" onclick="enterCompareMode()">⚔️ Compare</div>
+            <div class="filter-tab" onclick="filterGallery('recent')">Recent</div>
+            <div class="filter-tab" onclick="filterGallery('favorites')">Favorites</div>
+            <div class="filter-tab" onclick="filterGallery('lightning')">Lightning</div>
+            <div class="filter-tab" onclick="filterGallery('normal')">Normal</div>
+            <div class="filter-tab" onclick="filterGallery('edit')">Edit</div>
+            <div class="filter-tab" onclick="enterCompareMode()">Compare</div>
         </div>
         <div id="compareMode" class="compare-mode-container">
             <div class="compare-header">
-                <span class="compare-title">📊 Compare Mode: Select 2 images to compare side-by-side</span>
-                <button onclick="exitCompareMode()" class="compare-exit-btn">✕ Exit</button>
+                <span class="compare-title">Compare Mode: Select 2 images to compare side-by-side</span>
+                <button onclick="exitCompareMode()" class="compare-exit-btn">Exit</button>
             </div>
             <div id="compareSlots" class="compare-slots">
                 <div id="compareSlot1" class="compare-slot">
@@ -2346,34 +3074,40 @@ HTML_PAGE = '''<!DOCTYPE html>
     <!-- Settings Tab -->
     <div id="tab-settings" class="tab-content">
         <div class="input-section">
-            <h2 style="margin-top: 0;">⚙️ Settings</h2>
+            <h2>Settings</h2>
 
             <!-- Provider Toggle -->
-            <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 12px; margin-bottom: 20px;">
-                <label style="font-size: 1.1em; margin-bottom: 15px; display: block;">Image Generation</label>
-                <div style="background: rgba(72, 187, 120, 0.1); padding: 15px; border-radius: 12px; border: 1px solid rgba(72, 187, 120, 0.3);">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <span style="font-size: 1.5em;">💻</span>
-                        <div>
-                            <div style="font-weight: bold;">Local Mode (ComfyUI + Qwen)</div>
-                            <div style="font-size: 0.85em; color: #888;">Image generation on your Mac</div>
-                        </div>
+            <div class="settings-card">
+                <label class="settings-label">Image Generation</label>
+                <div class="settings-item active">
+                    <div class="settings-item-content">
+                        <div class="settings-item-title">Local Mode (ComfyUI + Qwen)</div>
+                        <div class="settings-item-desc">Image generation on your Mac</div>
                     </div>
                 </div>
             </div>
 
             <!-- Local Models Info -->
-            <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 12px; margin-bottom: 20px;">
-                <label>Local Models</label>
-                <div style="margin-top: 10px; font-size: 0.9em; color: #aaa;">
-                    <div style="margin-bottom: 8px;">🖼️ <strong>Image Gen:</strong> Qwen-Image-2512 Q6_K + Abliterated Text Encoder Q6_K</div>
-                    <div style="margin-bottom: 8px;">🖌️ <strong>Image Edit:</strong> Qwen-Image-Edit-2511 Q4_K_M (balanced VRAM)</div>
-                    <div>✨ <strong>Refinement:</strong> Qwen 2.5 0.5B via Ollama (~350MB)</div>
+            <div class="settings-card">
+                <label class="settings-label">Local Models</label>
+                <div class="settings-models">
+                    <div class="settings-model-item">
+                        <span class="settings-model-label">Image Gen:</span>
+                        <span class="settings-model-value">Qwen-Image-2512 Q6_K + Abliterated Text Encoder Q6_K</span>
+                    </div>
+                    <div class="settings-model-item">
+                        <span class="settings-model-label">Image Edit:</span>
+                        <span class="settings-model-value">Qwen-Image-Edit-2511 Q4_K_M (balanced VRAM)</span>
+                    </div>
+                    <div class="settings-model-item">
+                        <span class="settings-model-label">Refinement:</span>
+                        <span class="settings-model-value">Qwen 2.5 0.5B via Ollama (~350MB)</span>
+                    </div>
                 </div>
             </div>
 
             <!-- Status -->
-            <div id="settingsStatus" style="padding: 15px; background: rgba(72, 187, 120, 0.2); border-radius: 8px; display: none; margin-top: 15px;">
+            <div id="settingsStatus" class="settings-status">
                 Settings saved!
             </div>
         </div>
@@ -2386,34 +3120,33 @@ HTML_PAGE = '''<!DOCTYPE html>
     </div>
 
     <!-- Gallery Picker Modal for Edit Tab -->
-    <div class="modal" id="galleryPickerModal" onclick="closeGalleryPicker(event)" style="display: none;">
-        <div onclick="event.stopPropagation()" style="background: rgba(30, 30, 50, 0.98); backdrop-filter: blur(20px); padding: var(--space-4); border-radius: var(--radius-lg); max-width: 600px; max-height: 80vh; overflow-y: auto;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-3);">
-                <h3 style="margin: 0;">Select Image to Edit</h3>
-                <button onclick="closeGalleryPicker()" style="background: none; border: none; color: var(--text-tertiary); font-size: 20px; cursor: pointer;">&times;</button>
+    <div class="modal" id="galleryPickerModal" onclick="closeGalleryPicker(event)">
+        <div class="modal-panel" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3>Select Image to Edit</h3>
+                <button class="modal-close-btn" onclick="closeGalleryPicker()">&times;</button>
             </div>
-            <div id="galleryPickerGrid" class="gallery" style="grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));"></div>
+            <div id="galleryPickerGrid" class="gallery gallery-compact"></div>
         </div>
     </div>
 
     <!-- Angle Cheatsheet Modal -->
-    <div class="modal" id="angleCheatsheetModal" onclick="closeAngleCheatsheet(event)" style="display: none;">
-        <div onclick="event.stopPropagation()" style="background: rgba(30, 30, 50, 0.98); backdrop-filter: blur(20px); padding: var(--space-4); border-radius: var(--radius-lg); max-width: 650px; max-height: 85vh; overflow-y: auto;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-3);">
-                <h3 style="margin: 0;">📐 Camera Angle Prompt Cheatsheet</h3>
-                <button onclick="closeAngleCheatsheet()" style="background: none; border: none; color: var(--text-tertiary); font-size: 20px; cursor: pointer;">&times;</button>
+    <div class="modal" id="angleCheatsheetModal" onclick="closeAngleCheatsheet(event)">
+        <div class="modal-panel modal-panel-wide" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3>Camera Angle Prompt Cheatsheet</h3>
+                <button class="modal-close-btn" onclick="closeAngleCheatsheet()">&times;</button>
             </div>
 
-            <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: var(--space-3);">
-                <p style="margin: 0 0 10px 0;"><strong>Format:</strong> <code style="background: rgba(102,126,234,0.2); padding: 2px 6px; border-radius: 4px;">&lt;sks&gt; [direction] [elevation] [distance]</code></p>
-                <p style="margin: 0; color: #aaa;">Copy the angle prompt and paste it into the "Edit Description" field above.</p>
+            <div class="modal-description">
+                <p><strong>Format:</strong> <code>&lt;sks&gt; [direction] [elevation] [distance]</code></p>
+                <p>Copy the angle prompt and paste it into the "Edit Description" field above.</p>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--space-3);">
-                <!-- Directions -->
-                <div style="background: rgba(255,255,255,0.05); padding: var(--space-2); border-radius: var(--radius-md);">
-                    <h4 style="margin: 0 0 10px 0; color: var(--accent); font-size: 13px;">🧭 Direction</h4>
-                    <div style="font-size: 12px; line-height: 1.8;">
+            <div class="modal-grid-3">
+                <div class="modal-card">
+                    <h4>Direction</h4>
+                    <div class="modal-card-content">
                         <div><code>front</code> - Face camera</div>
                         <div><code>left</code> - Turn left</div>
                         <div><code>right</code> - Turn right</div>
@@ -2425,10 +3158,9 @@ HTML_PAGE = '''<!DOCTYPE html>
                     </div>
                 </div>
 
-                <!-- Elevation -->
-                <div style="background: rgba(255,255,255,0.05); padding: var(--space-2); border-radius: var(--radius-md);">
-                    <h4 style="margin: 0 0 10px 0; color: var(--accent); font-size: 13px;">📏 Elevation</h4>
-                    <div style="font-size: 12px; line-height: 1.8;">
+                <div class="modal-card">
+                    <h4>Elevation</h4>
+                    <div class="modal-card-content">
                         <div><code>overhead</code> - Bird's eye</div>
                         <div><code>high</code> - Above eye</div>
                         <div><code>eye</code> - Eye level</div>
@@ -2437,10 +3169,9 @@ HTML_PAGE = '''<!DOCTYPE html>
                     </div>
                 </div>
 
-                <!-- Distance -->
-                <div style="background: rgba(255,255,255,0.05); padding: var(--space-2); border-radius: var(--radius-md);">
-                    <h4 style="margin: 0 0 10px 0; color: var(--accent); font-size: 13px;">🔍 Distance</h4>
-                    <div style="font-size: 12px; line-height: 1.8;">
+                <div class="modal-card">
+                    <h4>Distance</h4>
+                    <div class="modal-card-content">
                         <div><code>extreme_close</code></div>
                         <div><code>close</code> - Close up</div>
                         <div><code>medium_close</code></div>
@@ -2453,141 +3184,128 @@ HTML_PAGE = '''<!DOCTYPE html>
                 </div>
             </div>
 
-            <div style="margin-top: var(--space-3); padding: var(--space-2); background: rgba(102,126,234,0.1); border-radius: var(--radius-md); border: 1px solid rgba(102,126,234,0.3);">
-                <h4 style="margin: 0 0 10px 0; font-size: 13px;">✨ Examples (click to copy)</h4>
-                <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                    <button onclick="copyAnglePrompt('&lt;sks&gt; right eye medium')" style="padding: 6px 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; color: #fff; cursor: pointer; font-size: 12px;">Right profile</button>
-                    <button onclick="copyAnglePrompt('&lt;sks&gt; left eye medium')" style="padding: 6px 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; color: #fff; cursor: pointer; font-size: 12px;">Left profile</button>
-                    <button onclick="copyAnglePrompt('&lt;sks&gt; front high close')" style="padding: 6px 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; color: #fff; cursor: pointer; font-size: 12px;">High angle close</button>
-                    <button onclick="copyAnglePrompt('&lt;sks&gt; front low full')" style="padding: 6px 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; color: #fff; cursor: pointer; font-size: 12px;">Low full body</button>
-                    <button onclick="copyAnglePrompt('&lt;sks&gt; back_left eye medium')" style="padding: 6px 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; color: #fff; cursor: pointer; font-size: 12px;">Over shoulder</button>
-                    <button onclick="copyAnglePrompt('&lt;sks&gt; front overhead wide')" style="padding: 6px 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; color: #fff; cursor: pointer; font-size: 12px;">Bird's eye wide</button>
+            <div class="modal-highlight">
+                <h4>Examples (click to copy)</h4>
+                <div class="modal-btn-row">
+                    <button class="modal-chip" onclick="copyAnglePrompt('&lt;sks&gt; right eye medium')">Right profile</button>
+                    <button class="modal-chip" onclick="copyAnglePrompt('&lt;sks&gt; left eye medium')">Left profile</button>
+                    <button class="modal-chip" onclick="copyAnglePrompt('&lt;sks&gt; front high close')">High angle close</button>
+                    <button class="modal-chip" onclick="copyAnglePrompt('&lt;sks&gt; front low full')">Low full body</button>
+                    <button class="modal-chip" onclick="copyAnglePrompt('&lt;sks&gt; back_left eye medium')">Over shoulder</button>
+                    <button class="modal-chip" onclick="copyAnglePrompt('&lt;sks&gt; front overhead wide')">Bird's eye wide</button>
                 </div>
             </div>
 
-            <div style="margin-top: var(--space-2); text-align: center;">
-                <button onclick="closeAngleCheatsheet()" style="padding: 10px 24px; background: var(--accent); border: none; border-radius: var(--radius-md); color: #fff; cursor: pointer; font-size: 14px;">Got it!</button>
+            <div class="modal-actions">
+                <button onclick="closeAngleCheatsheet()">Got it!</button>
             </div>
         </div>
     </div>
 
     <!-- Edit Prompt Template Modal -->
-    <div class="modal" id="editCheatsheetModal" onclick="closeEditCheatsheet(event)" style="display: none;">
-        <div onclick="event.stopPropagation()" style="background: rgba(30, 30, 50, 0.98); backdrop-filter: blur(20px); padding: var(--space-4); border-radius: var(--radius-lg); max-width: 500px; max-height: 85vh; overflow-y: auto;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-3);">
-                <h3 style="margin: 0;">🖌️ Edit Templates</h3>
-                <button onclick="closeEditCheatsheet()" style="background: none; border: none; color: var(--text-tertiary); font-size: 20px; cursor: pointer;">&times;</button>
+    <div class="modal" id="editCheatsheetModal" onclick="closeEditCheatsheet(event)">
+        <div class="modal-panel modal-panel-compact" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3>Edit Templates</h3>
+                <button class="modal-close-btn" onclick="closeEditCheatsheet()">&times;</button>
             </div>
 
-            <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: var(--space-3);">
-                <p style="margin: 0;">Select a template and fill in keywords, then click "Use Template"</p>
-            </div>
+            <p class="modal-description">Select a template and fill in keywords, then click "Use Template"</p>
 
-            <!-- Template Selection -->
-            <div style="margin-bottom: var(--space-3);">
-                <label style="font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; display: block;">Template</label>
-                <select id="editTemplateSelect" onchange="updateTemplatePreview()" style="width: 100%; padding: 10px 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; color: #fff; font-size: 14px; cursor: pointer;">
-                    <optgroup label="🌄 Background">
+            <div class="form-group">
+                <label class="form-label">Template</label>
+                <select id="editTemplateSelect" class="form-input" onchange="updateTemplatePreview()">
+                    <optgroup label="Background">
                         <option value="Change the background to {location}">Change background to...</option>
                         <option value="Replace background with {scene}">Replace background with...</option>
                         <option value="Add {weather} weather">Add weather...</option>
                     </optgroup>
-                    <optgroup label="💡 Lighting">
+                    <optgroup label="Lighting">
                         <option value="Add {type} lighting">Add lighting...</option>
                         <option value="Change lighting to {time} atmosphere">Change to time of day...</option>
                         <option value="Add {color} colored lighting">Add colored lighting...</option>
                     </optgroup>
-                    <optgroup label="🎨 Style">
+                    <optgroup label="Style">
                         <option value="Make it look like {style}">Make it look like...</option>
                         <option value="Convert to {art_style} style">Convert to art style...</option>
                         <option value="Apply {effect} effect">Apply effect...</option>
                     </optgroup>
-                    <optgroup label="✨ Add Elements">
+                    <optgroup label="Add Elements">
                         <option value="Add {objects} in the scene">Add objects...</option>
                         <option value="Add falling {particles}">Add falling particles...</option>
                         <option value="Add {effect} effects">Add visual effects...</option>
                     </optgroup>
-                    <optgroup label="👤 Portrait">
+                    <optgroup label="Portrait">
                         <option value="Change hair color to {color}">Change hair color...</option>
                         <option value="Add {accessory}">Add accessory...</option>
                         <option value="Change outfit to {clothing}">Change outfit...</option>
                         <option value="Change expression to {expression}">Change expression...</option>
                     </optgroup>
-                    <optgroup label="🎭 Mood">
+                    <optgroup label="Mood">
                         <option value="Make it more {mood}">Change mood to...</option>
                         <option value="Add {atmosphere} atmosphere">Add atmosphere...</option>
                     </optgroup>
                 </select>
             </div>
 
-            <!-- Keyword Input -->
-            <div style="margin-bottom: var(--space-3);">
-                <label style="font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; display: block;">Your Keyword</label>
-                <input type="text" id="editTemplateKeyword" placeholder="e.g., sunset beach, neon pink, anime..."
-                       style="width: 100%; padding: 10px 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; color: #fff; font-size: 14px; box-sizing: border-box;"
+            <div class="form-group">
+                <label class="form-label">Your Keyword</label>
+                <input type="text" id="editTemplateKeyword" class="form-input" placeholder="e.g., sunset beach, neon pink, anime..."
                        onkeyup="updateTemplatePreview()" onkeypress="if(event.key==='Enter')applyTemplate()">
             </div>
 
-            <!-- Preview -->
-            <div style="margin-bottom: var(--space-3); padding: var(--space-2); background: rgba(102, 126, 234, 0.1); border: 1px solid rgba(102, 126, 234, 0.3); border-radius: 6px;">
-                <label style="font-size: 11px; color: var(--text-tertiary); margin-bottom: 4px; display: block;">Preview</label>
-                <div id="templatePreview" style="font-size: 14px; color: #fff; min-height: 20px;">Select a template and enter a keyword</div>
+            <div class="form-preview">
+                <div class="form-preview-label">Preview</div>
+                <div id="templatePreview" class="form-preview-text">Select a template and enter a keyword</div>
             </div>
 
-            <!-- Quick Keywords -->
-            <div style="margin-bottom: var(--space-3);">
-                <label style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; display: block;">Quick Keywords (click to use)</label>
-                <div id="quickKeywords" style="display: flex; flex-wrap: wrap; gap: 6px;">
-                    <!-- Populated by JS based on template -->
-                </div>
+            <div class="form-group">
+                <label class="form-label">Quick Keywords (click to use)</label>
+                <div id="quickKeywords" class="modal-btn-row"></div>
             </div>
 
-            <!-- Action Buttons -->
-            <div style="display: flex; gap: 10px;">
-                <button onclick="applyTemplate()" style="flex: 1; padding: 12px; background: var(--accent); border: none; border-radius: var(--radius-md); color: #fff; cursor: pointer; font-size: 14px; font-weight: 500;">✓ Use Template</button>
-                <button onclick="closeEditCheatsheet()" style="padding: 12px 20px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: var(--radius-md); color: #fff; cursor: pointer; font-size: 14px;">Cancel</button>
+            <div class="btn-row">
+                <button onclick="applyTemplate()">Use Template</button>
+                <button class="btn-secondary" onclick="closeEditCheatsheet()">Cancel</button>
             </div>
         </div>
     </div>
 
     <!-- Generate Templates Modal -->
-    <div class="modal" id="generateTemplatesModal" onclick="closeGenerateTemplates(event)" style="display: none;">
-        <div onclick="event.stopPropagation()" style="background: rgba(30, 30, 50, 0.98); backdrop-filter: blur(20px); padding: var(--space-4); border-radius: var(--radius-lg); max-width: 500px; max-height: 85vh; overflow-y: auto;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-3);">
-                <h3 style="margin: 0;">✨ Generate Templates</h3>
-                <button onclick="closeGenerateTemplates()" style="background: none; border: none; color: var(--text-tertiary); font-size: 20px; cursor: pointer;">&times;</button>
+    <div class="modal" id="generateTemplatesModal" onclick="closeGenerateTemplates(event)">
+        <div class="modal-panel modal-panel-compact" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3>Generate Templates</h3>
+                <button class="modal-close-btn" onclick="closeGenerateTemplates()">&times;</button>
             </div>
 
-            <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: var(--space-3);">
-                <p style="margin: 0;">Select a template, fill in your subject, and generate!</p>
-            </div>
+            <p class="modal-description">Select a template, fill in your subject, and generate!</p>
 
-            <!-- Template Selection -->
-            <div style="margin-bottom: var(--space-3);">
-                <label style="font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; display: block;">Template</label>
-                <select id="genTemplateSelect" onchange="updateGenTemplatePreview()" style="width: 100%; padding: 10px 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; color: #fff; font-size: 14px; cursor: pointer;">
-                    <optgroup label="👤 People">
+            <div class="form-group">
+                <label class="form-label">Template</label>
+                <select id="genTemplateSelect" class="form-input" onchange="updateGenTemplatePreview()">
+                    <optgroup label="People">
                         <option value="Hyperrealistic portrait of {subject}, natural lighting, sharp focus, professional photography">Realistic Portrait</option>
                         <option value="Anime style illustration of {subject}, vibrant colors, detailed">Anime Character</option>
                         <option value="Fantasy warrior {subject}, epic armor, dramatic lighting, digital art">Fantasy Warrior</option>
                     </optgroup>
-                    <optgroup label="🏞️ Landscapes">
+                    <optgroup label="Landscapes">
                         <option value="{subject} landscape at sunset, golden hour, cinematic, breathtaking">Sunset Landscape</option>
                         <option value="Magical {subject} with glowing elements, fantasy art, ethereal atmosphere">Fantasy Scene</option>
                         <option value="{subject} in winter with snow, cozy atmosphere, warm lights">Winter Scene</option>
                     </optgroup>
-                    <optgroup label="🎨 Art Styles">
+                    <optgroup label="Art Styles">
                         <option value="{subject}, oil painting style, classical art, museum quality">Oil Painting</option>
                         <option value="{subject}, watercolor style, soft colors, artistic">Watercolor</option>
                         <option value="{subject}, Studio Ghibli style, whimsical, animated">Studio Ghibli</option>
                         <option value="{subject}, cyberpunk aesthetic, neon lights, futuristic">Cyberpunk</option>
                     </optgroup>
-                    <optgroup label="🐾 Animals & Creatures">
+                    <optgroup label="Animals & Creatures">
                         <option value="Cute {subject}, adorable, fluffy, heartwarming, detailed fur">Cute Animal</option>
                         <option value="Majestic {subject}, powerful, detailed, nature photography style">Majestic Animal</option>
                         <option value="Mythical {subject} creature, fantasy art, magical, highly detailed">Fantasy Creature</option>
                     </optgroup>
-                    <optgroup label="🏛️ Architecture & Objects">
+                    <optgroup label="Architecture & Objects">
                         <option value="{subject} interior, cozy atmosphere, warm lighting, detailed">Cozy Interior</option>
                         <option value="Futuristic {subject}, sci-fi design, sleek, volumetric lighting">Sci-Fi Design</option>
                         <option value="Ancient {subject}, mysterious, dramatic lighting, epic scale">Ancient/Epic</option>
@@ -2595,32 +3313,25 @@ HTML_PAGE = '''<!DOCTYPE html>
                 </select>
             </div>
 
-            <!-- Subject Input -->
-            <div style="margin-bottom: var(--space-3);">
-                <label style="font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; display: block;">Your Subject</label>
-                <input type="text" id="genTemplateSubject" placeholder="e.g., a woman with red hair, mountain range, dragon..."
-                       style="width: 100%; padding: 10px 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; color: #fff; font-size: 14px; box-sizing: border-box;"
+            <div class="form-group">
+                <label class="form-label">Your Subject</label>
+                <input type="text" id="genTemplateSubject" class="form-input" placeholder="e.g., a woman with red hair, mountain range, dragon..."
                        onkeyup="updateGenTemplatePreview()" onkeypress="if(event.key==='Enter')applyGenTemplate()">
             </div>
 
-            <!-- Preview -->
-            <div style="margin-bottom: var(--space-3); padding: var(--space-2); background: rgba(102, 126, 234, 0.1); border: 1px solid rgba(102, 126, 234, 0.3); border-radius: 6px;">
-                <label style="font-size: 11px; color: var(--text-tertiary); margin-bottom: 4px; display: block;">Preview</label>
-                <div id="genTemplatePreview" style="font-size: 13px; color: #fff; min-height: 40px; line-height: 1.4;">Select a template and enter your subject</div>
+            <div class="form-preview">
+                <div class="form-preview-label">Preview</div>
+                <div id="genTemplatePreview" class="form-preview-text">Select a template and enter your subject</div>
             </div>
 
-            <!-- Quick Subjects -->
-            <div style="margin-bottom: var(--space-3);">
-                <label style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; display: block;">Quick Subjects (click to use)</label>
-                <div id="genQuickSubjects" style="display: flex; flex-wrap: wrap; gap: 6px;">
-                    <!-- Populated by JS -->
-                </div>
+            <div class="form-group">
+                <label class="form-label">Quick Subjects (click to use)</label>
+                <div id="genQuickSubjects" class="modal-btn-row"></div>
             </div>
 
-            <!-- Action Buttons -->
-            <div style="display: flex; gap: 10px;">
-                <button onclick="applyGenTemplate()" style="flex: 1; padding: 12px; background: var(--accent); border: none; border-radius: var(--radius-md); color: #fff; cursor: pointer; font-size: 14px; font-weight: 500;">✓ Use Template</button>
-                <button onclick="closeGenerateTemplates()" style="padding: 12px 20px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: var(--radius-md); color: #fff; cursor: pointer; font-size: 14px;">Cancel</button>
+            <div class="btn-row">
+                <button onclick="applyGenTemplate()">Use Template</button>
+                <button class="btn-secondary" onclick="closeGenerateTemplates()">Cancel</button>
             </div>
         </div>
     </div>
@@ -2665,10 +3376,10 @@ HTML_PAGE = '''<!DOCTYPE html>
             toast.className = `toast ${type}`;
 
             const icons = {
-                success: '✅',
-                error: '❌',
-                warning: '⚠️',
-                info: 'ℹ️'
+                success: '',
+                error: '',
+                warning: '',
+                info: ''
             };
 
             toast.innerHTML = `
@@ -2740,16 +3451,16 @@ HTML_PAGE = '''<!DOCTYPE html>
             container.classList.add('active');
             count.textContent = generationQueue.length;
             startBtn.disabled = queueProcessing || generationQueue.length === 0;
-            startBtn.textContent = queueProcessing ? '⏳ Processing...' : '▶ Start Queue';
+            startBtn.textContent = queueProcessing ? 'Processing...' : 'Start Queue';
 
             list.innerHTML = generationQueue.map((item, idx) => {
-                const statusIcon = item.status === 'processing' ? '⏳' : item.status === 'done' ? '✅' : item.status === 'error' ? '❌' : '⏸️';
-                const modeIcon = item.mode === 'lightning' ? '⚡' : '🎨';
+                const statusIcon = item.status === 'processing' ? '...' : item.status === 'done' ? 'Done' : item.status === 'error' ? 'Err' : 'Wait';
+                const modeIcon = item.mode === 'lightning' ? 'L' : 'Q';
                 return '<div class="queue-item' + (item.status === 'processing' ? ' processing' : '') + '">' +
                     '<span class="queue-item-status">' + statusIcon + '</span>' +
                     '<span class="queue-item-prompt" title="' + item.prompt.replace(/"/g, '&quot;') + '">' + item.prompt + '</span>' +
                     '<span class="queue-item-settings">' + modeIcon + ' ' + item.resolution + 'px</span>' +
-                    (item.status === 'pending' ? '<span class="queue-item-remove" onclick="removeFromQueue(' + item.id + ')">✕</span>' : '') +
+                    (item.status === 'pending' ? '<span class="queue-item-remove" onclick="removeFromQueue(' + item.id + ')">x</span>' : '') +
                     '</div>';
             }).join('');
         }
@@ -2789,10 +3500,10 @@ HTML_PAGE = '''<!DOCTYPE html>
                 updateQueueUI();
 
                 btn.disabled = true;
-                btn.textContent = '⏳ Queue ' + (i + 1) + '/' + generationQueue.length;
+                btn.textContent = 'Queue ' + (i + 1) + '/' + generationQueue.length;
                 status.style.display = 'block';
                 status.className = 'generating';
-                statusText.textContent = '📋 Processing queue item ' + (i + 1) + '/' + generationQueue.length;
+                statusText.textContent = 'Processing queue item ' + (i + 1) + '/' + generationQueue.length;
 
                 try {
                     const queueResponse = await fetch('/queue', {
@@ -2827,8 +3538,8 @@ HTML_PAGE = '''<!DOCTYPE html>
                         const filename = data.image.split('/').pop();
                         result.innerHTML = '<img src="' + data.image + '?t=' + Date.now() + '">' +
                             '<div class="result-actions">' +
-                            '<a href="' + data.image + '" download="' + filename + '"><button class="btn-green">⬇️ Download</button></a>' +
-                            '<button onclick="toggleFavorite(\\'' + filename + '\\')">⭐ Favorite</button>' +
+                            '<a href="' + data.image + '" download="' + filename + '"><button class="btn-green">Download</button></a>' +
+                            '<button onclick="toggleFavorite(\\'' + filename + '\\')">Favorite</button>' +
                             '</div>' +
                             '<div class="result-info">Queue item ' + (i + 1) + ' of ' + generationQueue.length + '</div>';
                     } else {
@@ -2846,9 +3557,9 @@ HTML_PAGE = '''<!DOCTYPE html>
 
             queueProcessing = false;
             btn.disabled = false;
-            btn.textContent = '✨ Generate';
+            btn.textContent = 'Generate';
             status.className = 'success';
-            statusText.textContent = '✅ Queue complete!';
+            statusText.textContent = 'Queue complete!';
             updateQueueUI();
 
             // Remove completed items after a delay
@@ -2880,7 +3591,7 @@ HTML_PAGE = '''<!DOCTYPE html>
             const section = document.getElementById('advancedSection');
             const toggle = document.querySelector('.advanced-toggle');
             section.classList.toggle('show');
-            toggle.textContent = section.classList.contains('show') ? '▼ Advanced Options' : '▶ Advanced Options';
+            toggle.textContent = section.classList.contains('show') ? 'Advanced Options' : 'Advanced Options';
         }
 
         function setPrompt(text) {
@@ -2992,14 +3703,15 @@ HTML_PAGE = '''<!DOCTYPE html>
             } else {
                 html += '<div class="history-list">' + filtered.slice(0, 20).map((item, i) => {
                     const originalIndex = promptHistory.indexOf(item);
-                    return '<div class="history-item" style="display:flex; justify-content:space-between; align-items:center;">' +
-                        '<div onclick="useHistoryPrompt(' + originalIndex + ')" style="flex:1; cursor:pointer;">' +
+                    return '<div class="history-item">' +
+                        '<div class="history-item-content">' +
+                        '<div class="history-item-text" onclick="useHistoryPrompt(' + originalIndex + ')">' +
                         '<div>' + item.prompt.substring(0, 60) + (item.prompt.length > 60 ? '...' : '') + '</div>' +
                         '<div class="history-meta">' + item.mode + ' | ' + item.resolution + 'px' +
                         (item.timestamp ? ' | ' + new Date(item.timestamp).toLocaleDateString() : '') + '</div>' +
                         '</div>' +
-                        '<span onclick="event.stopPropagation(); deleteHistoryItem(' + originalIndex + ')" style="cursor:pointer; padding:5px; opacity:0.6;" title="Delete">🗑️</span>' +
-                        '</div>';
+                        '<span class="history-item-delete" onclick="event.stopPropagation(); deleteHistoryItem(' + originalIndex + ')" title="Delete">×</span>' +
+                        '</div></div>';
                 }).join('') + '</div>';
             }
 
@@ -3072,7 +3784,7 @@ HTML_PAGE = '''<!DOCTYPE html>
                 const times = { lightning: { 512: 1, 768: 2, 1024: 3, 1536: 5 }, normal: { 512: 7, 768: 12, 1024: 16, 1536: 25 } };
                 totalTime = (times[mode][resolution] || times[mode][1024]) * batch;
             }
-            document.getElementById('timeEstimate').textContent = '⏱️ Estimated: ~' + totalTime + ' min' + (batch > 1 ? ' (for ' + batch + ' images)' : '');
+            document.getElementById('timeEstimate').textContent = 'Estimated: ~' + totalTime + ' min' + (batch > 1 ? ' (for ' + batch + ' images)' : '');
         }
 
         function formatTime(seconds) {
@@ -3093,7 +3805,7 @@ HTML_PAGE = '''<!DOCTYPE html>
 
                 const percentText = document.getElementById('percentText');
                 if (data.status === 'loading') {
-                    statusText.textContent = '📦 ' + data.message;
+                    statusText.textContent = data.message;
                     progressContainer.style.display = 'none';
                 } else if (data.status === 'generating') {
                     progressContainer.style.display = 'block';
@@ -3101,7 +3813,7 @@ HTML_PAGE = '''<!DOCTYPE html>
                     progressFill.style.width = percent + '%';
                     stepText.textContent = 'Step ' + data.current_step + '/' + data.total_steps;
                     percentText.textContent = percent + '%';
-                    statusText.textContent = '🎨 Generating...';
+                    statusText.textContent = 'Generating...';
                     if (data.current_step > 0 && startTime) {
                         const elapsed = (Date.now() - startTime) / 1000;
                         const remaining = (elapsed / data.current_step) * (data.total_steps - data.current_step);
@@ -3144,8 +3856,8 @@ HTML_PAGE = '''<!DOCTYPE html>
                 const percentText = document.getElementById('percentText');
                 if (data.status === 'loading') {
                     statusText.textContent = totalBatchSize > 1
-                        ? '📦 Image ' + (currentBatchIndex + 1) + '/' + totalBatchSize + ': Loading models...'
-                        : '📦 ' + data.message;
+                        ? 'Image ' + (currentBatchIndex + 1) + '/' + totalBatchSize + ': Loading models...'
+                        : data.message;
                     progressContainer.style.display = 'none';
                 } else if (data.status === 'generating') {
                     progressContainer.style.display = 'block';
@@ -3154,8 +3866,8 @@ HTML_PAGE = '''<!DOCTYPE html>
                     stepText.textContent = 'Step ' + data.current_step + '/' + data.total_steps;
                     percentText.textContent = percent + '%';
                     statusText.textContent = totalBatchSize > 1
-                        ? '🎨 Image ' + (currentBatchIndex + 1) + '/' + totalBatchSize + ' generating...'
-                        : '🎨 Generating...';
+                        ? 'Image ' + (currentBatchIndex + 1) + '/' + totalBatchSize + ' generating...'
+                        : 'Generating...';
                     if (data.current_step > 0 && startTime) {
                         const elapsed = (Date.now() - startTime) / 1000;
                         const remaining = (elapsed / data.current_step) * (data.total_steps - data.current_step);
@@ -3173,13 +3885,13 @@ HTML_PAGE = '''<!DOCTYPE html>
             let html = '<div class="batch-progress">';
             for (let i = 0; i < batchSize; i++) {
                 let className = 'batch-progress-item';
-                let icon = '⏳';
+                let icon = '';
                 if (completedIndices.includes(i)) {
                     className += ' done';
-                    icon = '✅';
+                    icon = '';
                 } else if (i === currentIndex) {
                     className += ' active';
-                    icon = '🎨';
+                    icon = '';
                 }
                 html += '<div id="batch-item-' + i + '" class="' + className + '">' +
                     icon + ' #' + (i + 1);
@@ -3241,8 +3953,8 @@ HTML_PAGE = '''<!DOCTYPE html>
                 for (let i = 0; i < batchSize; i++) {
                     currentBatchIndex = i;
                     const seed = baseSeed ? baseSeed + i : null;
-                    btn.textContent = batchSize > 1 ? '⏳ ' + (i + 1) + '/' + batchSize : '⏳ Generating...';
-                    statusText.textContent = batchSize > 1 ? '🚀 Starting image ' + (i + 1) + '...' : '🚀 Starting...';
+                    btn.textContent = batchSize > 1 ? (i + 1) + '/' + batchSize + '...' : 'Generating...';
+                    statusText.textContent = batchSize > 1 ? 'Starting image ' + (i + 1) + '...' : 'Starting...';
 
                     // Update batch progress UI
                     if (batchSize > 1) {
@@ -3283,16 +3995,16 @@ HTML_PAGE = '''<!DOCTYPE html>
                 lastSeed = seeds[seeds.length - 1];
 
                 status.className = 'success';
-                statusText.textContent = batchSize > 1 ? '✅ ' + batchSize + ' images done!' : '✅ Done!';
+                statusText.textContent = batchSize > 1 ? batchSize + ' images done!' : 'Done!';
                 progressContainer.style.display = 'none';
 
                 if (batchSize === 1) {
                     const filename = generatedImages[0].split('/').pop();
                     result.innerHTML = '<img src="' + generatedImages[0] + '?t=' + Date.now() + '">' +
                         '<div class="result-actions">' +
-                        '<a href="' + generatedImages[0] + '" download="' + filename + '"><button class="btn-green">⬇️ Download</button></a>' +
-                        '<button onclick="toggleFavorite(\\'' + filename + '\\')">⭐ Favorite</button>' +
-                        '<button class="btn-secondary" onclick="copySeed()">📋 Copy Seed</button>' +
+                        '<a href="' + generatedImages[0] + '" download="' + filename + '"><button class="btn-green">Download</button></a>' +
+                        '<button onclick="toggleFavorite(\\'' + filename + '\\')">Favorite</button>' +
+                        '<button class="btn-secondary" onclick="copySeed()">Copy Seed</button>' +
                         '</div>' +
                         '<div class="result-info">Seed: <span class="seed-display" onclick="copySeed()" title="Click to copy">' + lastSeed + '</span></div>';
                 } else {
@@ -3303,8 +4015,8 @@ HTML_PAGE = '''<!DOCTYPE html>
                         html += '<div class="batch-item">' +
                             '<img src="' + img + '?t=' + Date.now() + '">' +
                             '<div class="batch-item-actions">' +
-                            '<a href="' + img + '" download="' + filename + '"><button class="btn-green btn-sm">⬇️</button></a>' +
-                            '<button class="btn-sm" onclick="toggleFavorite(\\'' + filename + '\\')">⭐</button>' +
+                            '<a href="' + img + '" download="' + filename + '"><button class="btn-green btn-sm">DL</button></a>' +
+                            '<button class="btn-sm" onclick="toggleFavorite(\\'' + filename + '\\')">Fav</button>' +
                             '</div>' +
                             '<div class="batch-seed">Seed: ' + seeds[idx] + '</div>' +
                             '</div>';
@@ -3318,14 +4030,14 @@ HTML_PAGE = '''<!DOCTYPE html>
             } catch (e) {
                 clearInterval(progressInterval);
                 status.className = 'error';
-                statusText.textContent = '❌ ' + e.message;
+                statusText.textContent = 'Error: ' + e.message;
                 showToast('Error', e.message, 'error');
             } finally {
                 currentPromptId = null;
                 totalBatchSize = 1;
                 currentBatchIndex = 0;
                 btn.disabled = false;
-                btn.textContent = '✨ Generate';
+                btn.textContent = 'Generate';
                 document.getElementById('cancelBtn').style.display = 'none';
             }
         }
@@ -3342,9 +4054,9 @@ HTML_PAGE = '''<!DOCTYPE html>
                 clearInterval(progressInterval);
                 currentPromptId = null;
                 document.getElementById('status').className = 'error';
-                document.getElementById('statusText').textContent = '⏹️ Cancelled';
+                document.getElementById('statusText').textContent = 'Cancelled';
                 document.getElementById('generateBtn').disabled = false;
-                document.getElementById('generateBtn').textContent = '✨ Generate';
+                document.getElementById('generateBtn').textContent = 'Generate';
                 document.getElementById('cancelBtn').style.display = 'none';
             } catch (e) {
                 console.error('Cancel failed:', e);
@@ -3393,7 +4105,7 @@ HTML_PAGE = '''<!DOCTYPE html>
             const resultDiv = document.getElementById('result' + side);
 
             btn.disabled = true;
-            btn.textContent = '⏳ Generating...';
+            btn.textContent = 'Generating...';
             resultDiv.innerHTML = '<div class="split-placeholder">Generating...</div>';
 
             try {
@@ -3411,14 +4123,14 @@ HTML_PAGE = '''<!DOCTYPE html>
                 if (data.success) {
                     resultDiv.innerHTML = '<img src="' + data.image + '?t=' + Date.now() + '">';
                 } else {
-                    resultDiv.innerHTML = '<div class="split-placeholder" style="color: var(--error);">❌ ' + data.error + '</div>';
+                    resultDiv.innerHTML = '<div class="split-placeholder result-error">Error: ' + data.error + '</div>';
                 }
             } catch (e) {
-                resultDiv.innerHTML = '<div class="split-placeholder" style="color: var(--error);">❌ ' + e.message + '</div>';
+                resultDiv.innerHTML = '<div class="split-placeholder result-error">Error: ' + e.message + '</div>';
             } finally {
                 // Always reset button state
                 btn.disabled = false;
-                btn.textContent = '✨ Generate ' + side;
+                btn.textContent = 'Generate ' + side;
             }
         }
 
@@ -3438,10 +4150,10 @@ HTML_PAGE = '''<!DOCTYPE html>
             const result = document.getElementById('result');
 
             btn.disabled = true;
-            btn.textContent = '⏳ Comparing...';
+            btn.textContent = 'Comparing...';
             status.style.display = 'block';
             status.className = 'generating';
-            statusText.textContent = '⚡ Generating Lightning version...';
+            statusText.textContent = 'Generating Lightning version...';
             result.innerHTML = '';
 
             try {
@@ -3457,7 +4169,7 @@ HTML_PAGE = '''<!DOCTYPE html>
                 const lightningResult = await fetch('/wait?prompt_id=' + lightningQueue.prompt_id);
                 const lightningData = await lightningResult.json();
 
-                statusText.textContent = '🎨 Generating Normal version (this takes longer)...';
+                statusText.textContent = 'Generating Normal version (this takes longer)...';
 
                 // Generate Normal version with same seed
                 const normalResponse = await fetch('/queue', {
@@ -3472,18 +4184,18 @@ HTML_PAGE = '''<!DOCTYPE html>
                 const normalData = await normalResult.json();
 
                 status.className = 'success';
-                statusText.textContent = '✅ Comparison complete!';
+                statusText.textContent = 'Comparison complete!';
 
                 // Show side-by-side comparison
                 result.innerHTML =
-                    '<h3 style="text-align:center;margin-bottom:15px;">⚔️ Lightning vs Normal (Same Seed: ' + seed + ')</h3>' +
+                    '<h3 class="comparison-title">Lightning vs Normal (Same Seed: ' + seed + ')</h3>' +
                     '<div class="comparison">' +
                     '<div class="comparison-col">' +
-                    '<div class="comparison-label">⚡ Lightning (4 steps, ~1 min)</div>' +
+                    '<div class="comparison-label">Lightning (4 steps, ~1 min)</div>' +
                     (lightningData.success ? '<img src="' + lightningData.image + '?t=' + Date.now() + '">' : '<p>Failed</p>') +
                     '</div>' +
                     '<div class="comparison-col">' +
-                    '<div class="comparison-label">🎨 Normal (30 steps, ~7 min)</div>' +
+                    '<div class="comparison-label">Normal (30 steps, ~7 min)</div>' +
                     (normalData.success ? '<img src="' + normalData.image + '?t=' + Date.now() + '">' : '<p>Failed</p>') +
                     '</div>' +
                     '</div>';
@@ -3491,11 +4203,11 @@ HTML_PAGE = '''<!DOCTYPE html>
                 addToHistory(prompt, 'compare', resolution, aspect, negativePrompt);
             } catch (e) {
                 status.className = 'error';
-                statusText.textContent = '❌ ' + e.message;
+                statusText.textContent = 'Error: ' + e.message;
             } finally {
                 // Always reset button state
                 btn.disabled = false;
-                btn.textContent = '⚔️ Compare';
+                btn.textContent = 'Compare';
             }
         }
 
@@ -3522,12 +4234,11 @@ HTML_PAGE = '''<!DOCTYPE html>
         function selectImageModel(model) {
             currentImageModel = model;
 
-            // Update button states
+            // Update button states using CSS classes
             ['Qwen', 'ZImage'].forEach(m => {
                 const btn = document.getElementById('imageModel' + m);
                 const isActive = model === m.toLowerCase();
-                btn.style.background = isActive ? 'rgba(102, 126, 234, 0.4)' : 'rgba(255,255,255,0.1)';
-                btn.style.borderColor = isActive ? '#667eea' : 'transparent';
+                btn.classList.toggle('active', isActive);
             });
 
             // Show/hide Qwen-specific options
@@ -3560,11 +4271,9 @@ HTML_PAGE = '''<!DOCTYPE html>
         function selectVideoMode(mode) {
             currentVideoMode = mode;
 
-            // Update button states
-            document.getElementById('videoModeT2V').style.background = mode === 't2v' ? 'rgba(102, 126, 234, 0.4)' : 'rgba(255,255,255,0.1)';
-            document.getElementById('videoModeT2V').style.borderColor = mode === 't2v' ? '#667eea' : 'transparent';
-            document.getElementById('videoModeI2V').style.background = mode === 'i2v' ? 'rgba(102, 126, 234, 0.4)' : 'rgba(255,255,255,0.1)';
-            document.getElementById('videoModeI2V').style.borderColor = mode === 'i2v' ? '#667eea' : 'transparent';
+            // Update button states using CSS classes
+            document.getElementById('videoModeT2V').classList.toggle('active', mode === 't2v');
+            document.getElementById('videoModeI2V').classList.toggle('active', mode === 'i2v');
 
             // Show/hide image upload for I2V mode
             document.getElementById('videoImageUploadSection').style.display = mode === 'i2v' ? 'block' : 'none';
@@ -3575,12 +4284,11 @@ HTML_PAGE = '''<!DOCTYPE html>
         function selectVideoModel(model) {
             currentVideoModel = model;
 
-            // Update button states
+            // Update button states using CSS classes
             ['LTX', 'Hunyuan', 'Wan'].forEach(m => {
                 const btn = document.getElementById('videoModel' + m);
                 const isActive = model === m.toLowerCase();
-                btn.style.background = isActive ? 'rgba(102, 126, 234, 0.4)' : 'rgba(255,255,255,0.1)';
-                btn.style.borderColor = isActive ? '#667eea' : 'transparent';
+                btn.classList.toggle('active', isActive);
             });
 
             // LTX doesn't support I2V mode currently
@@ -3632,7 +4340,7 @@ HTML_PAGE = '''<!DOCTYPE html>
             const toggle = section.previousElementSibling;
             const isVisible = section.style.display !== 'none';
             section.style.display = isVisible ? 'none' : 'block';
-            toggle.textContent = isVisible ? '▶ Advanced Options' : '▼ Advanced Options';
+            toggle.textContent = isVisible ? 'Advanced Options' : 'Advanced Options';
         }
 
         function updateVideoEstimate() {
@@ -3677,7 +4385,7 @@ HTML_PAGE = '''<!DOCTYPE html>
             const durationSec = Math.round(duration / 16); // 16 fps
             const timeStr = minTime < 1 ? '~30 seconds' : `~${minTime}-${maxTime} min`;
             document.getElementById('videoTimeEstimate').textContent =
-                `⏱️ ${modelName}: ${timeStr} (${resolution}, ${durationSec} sec)`;
+                `${modelName}: ${timeStr} (${resolution}, ${durationSec} sec)`;
         }
 
         async function refineVideoPrompt(mode) {
@@ -3734,7 +4442,7 @@ HTML_PAGE = '''<!DOCTYPE html>
             btn.disabled = true;
             cancelBtn.style.display = 'inline-flex';
             status.style.display = 'block';
-            statusText.textContent = '🎬 Queuing video generation...';
+            statusText.textContent = 'Queuing video generation...';
             result.innerHTML = '';
 
             try {
@@ -3759,7 +4467,7 @@ HTML_PAGE = '''<!DOCTYPE html>
                 }
 
                 currentVideoPromptId = queueData.prompt_id;
-                statusText.textContent = '🎬 Generating video... This may take several minutes.';
+                statusText.textContent = 'Generating video... This may take several minutes.';
 
                 // Poll for progress
                 pollVideoProgress(queueData.prompt_id);
@@ -3769,16 +4477,16 @@ HTML_PAGE = '''<!DOCTYPE html>
                 const data = await response.json();
 
                 if (data.success) {
-                    statusText.textContent = '✅ Video generated!';
+                    statusText.textContent = 'Video generated!';
                     result.innerHTML = `
-                        <div style="background: var(--glass-bg); border-radius: var(--radius-lg); padding: var(--space-4); margin-top: var(--space-4);">
-                            <video controls autoplay loop style="width: 100%; border-radius: var(--radius-md);">
+                        <div class="result-container">
+                            <video class="result-video" controls autoplay loop>
                                 <source src="${data.video}" type="video/webm">
                                 Your browser does not support video playback.
                             </video>
-                            <div style="margin-top: var(--space-3); display: flex; gap: var(--space-2);">
-                                <a href="${data.video}" download class="btn-secondary" style="flex: 1; text-align: center; text-decoration: none;">📥 Download</a>
-                                <button class="btn-secondary" style="flex: 1;" onclick="setVideoPrompt(document.getElementById('videoPrompt').value); showToast('Ready', 'Generate another!', 'info');">🔄 Regenerate</button>
+                            <div class="result-actions">
+                                <a href="${data.video}" download class="btn-secondary">Download</a>
+                                <button class="btn-secondary" onclick="setVideoPrompt(document.getElementById('videoPrompt').value); showToast('Ready', 'Generate another!', 'info');">Regenerate</button>
                             </div>
                         </div>
                     `;
@@ -3787,7 +4495,7 @@ HTML_PAGE = '''<!DOCTYPE html>
                     throw new Error(data.error || 'Video generation failed');
                 }
             } catch (e) {
-                statusText.textContent = '❌ ' + e.message;
+                statusText.textContent = 'Error: ' + e.message;
                 showToast('Error', e.message, 'error');
             } finally {
                 btn.disabled = false;
@@ -3884,13 +4592,14 @@ HTML_PAGE = '''<!DOCTYPE html>
                     const q = String.fromCharCode(39);
                     const timeAgo = formatRelativeTime(item.timestamp);
                     const size = formatFileSize(item.size);
+                    const typeBadge = type === 'lightning' ? 'L' : type === 'edit' ? 'E' : 'N';
                     return '<div class="gallery-item" data-type="' + type + '" data-filename="' + img + '" data-timestamp="' + item.timestamp + '">' +
                         '<img src="/output/' + img + '" onclick="handleGalleryClick(' + q + img + q + ')">' +
                         '<div class="gallery-actions">' +
-                        '<span class="favorite-star" onclick="event.stopPropagation(); toggleFavorite(' + q + img + q + ')">' + (favorites.includes(img) ? '⭐' : '☆') + '</span>' +
-                        '<span class="delete-btn" onclick="event.stopPropagation(); deleteImage(' + q + img + q + ')">🗑️</span>' +
+                        '<span class="favorite-star" onclick="event.stopPropagation(); toggleFavorite(' + q + img + q + ')">' + (favorites.includes(img) ? '★' : '☆') + '</span>' +
+                        '<span class="delete-btn" onclick="event.stopPropagation(); deleteImage(' + q + img + q + ')">×</span>' +
                         '</div>' +
-                        '<div class="gallery-type-badge">' + (type === 'lightning' ? '⚡' : type === 'edit' ? '🖌️' : '🎨') + '</div>' +
+                        '<div class="gallery-type-badge">' + typeBadge + '</div>' +
                         '<div class="gallery-info"><div class="gallery-info-text"><span>' + timeAgo + '</span><span>' + size + '</span></div></div>' +
                         '</div>';
                 }).join('');
@@ -3936,7 +4645,7 @@ HTML_PAGE = '''<!DOCTYPE html>
             if (visibleCount === 0) {
                 const emptyMsg = {
                     'recent': 'No images from the last 24 hours',
-                    'favorites': 'No favorites yet. Click ⭐ to add some!',
+                    'favorites': 'No favorites yet. Mark some as favorites!',
                     'lightning': 'No Lightning mode images',
                     'normal': 'No Normal mode images',
                     'edit': 'No edited images'
@@ -4109,15 +4818,13 @@ HTML_PAGE = '''<!DOCTYPE html>
         function selectEditMode(mode) {
             currentEditMode = mode;
 
-            // Update visual selection for mode buttons
-            document.querySelectorAll('.mode-btn').forEach(el => {
-                el.style.background = 'rgba(255,255,255,0.1)';
-                el.style.borderColor = 'transparent';
+            // Update visual selection for mode buttons using CSS classes
+            document.querySelectorAll('#tab-edit .mode-btn').forEach(el => {
+                el.classList.remove('active');
             });
             const selected = document.getElementById('mode' + mode.charAt(0).toUpperCase() + mode.slice(1));
             if (selected) {
-                selected.style.background = 'rgba(102, 126, 234, 0.4)';
-                selected.style.borderColor = '#667eea';
+                selected.classList.add('active');
             }
 
             // Show/hide upscale controls and angle guide button
@@ -4204,7 +4911,7 @@ HTML_PAGE = '''<!DOCTYPE html>
             // Update preview
             if (keyword) {
                 preview.textContent = template.replace(/\{[^}]+\}/, keyword);
-                preview.style.color = '#fff';
+                preview.style.color = 'var(--text-primary)';
             } else {
                 preview.textContent = template;
                 preview.style.color = 'var(--text-tertiary)';
@@ -4266,7 +4973,7 @@ HTML_PAGE = '''<!DOCTYPE html>
             // Update preview
             if (subject) {
                 preview.textContent = template.replace(/\{subject\}/g, subject);
-                preview.style.color = '#fff';
+                preview.style.color = 'var(--text-primary)';
             } else {
                 preview.textContent = template;
                 preview.style.color = 'var(--text-tertiary)';
@@ -4323,13 +5030,13 @@ HTML_PAGE = '''<!DOCTYPE html>
 
             // Remove active styling from all in group
             group.forEach(btn => {
-                btn.style.background = 'rgba(255,255,255,0.1)';
+                btn.style.background = 'var(--glass-bg-hover)';
                 btn.style.border = 'none';
             });
 
             // Add active styling to clicked
-            element.style.background = 'rgba(102, 126, 234, 0.4)';
-            element.style.border = '2px solid #667eea';
+            element.style.background = 'var(--accent-bg-active)';
+            element.style.border = '2px solid var(--accent)';
 
             // Update hidden value
             const value = element.dataset.dir || element.dataset.elev || element.dataset.dist;
@@ -4338,15 +5045,9 @@ HTML_PAGE = '''<!DOCTYPE html>
 
         // Upscale resolution selection
         function selectUpscale(resolution) {
-            // Update button styling
+            // Update button styling using CSS classes
             document.querySelectorAll('.upscale-btn').forEach(btn => {
-                if (btn.dataset.res === resolution) {
-                    btn.style.background = 'rgba(102, 126, 234, 0.4)';
-                    btn.style.border = '2px solid #667eea';
-                } else {
-                    btn.style.background = 'rgba(255,255,255,0.1)';
-                    btn.style.border = '2px solid transparent';
-                }
+                btn.classList.toggle('active', btn.dataset.res === resolution);
             });
             document.getElementById('upscaleRes').value = resolution;
         }
@@ -4395,11 +5096,11 @@ HTML_PAGE = '''<!DOCTYPE html>
 
             const originalImage = uploadedImageData;
             document.getElementById('editBtn').disabled = true;
-            document.getElementById('editBtn').textContent = '⏳ Processing...';
+            document.getElementById('editBtn').textContent = 'Processing...';
             document.getElementById('editResult').innerHTML =
-                '<div style="text-align:center; padding: var(--space-4);">' +
-                '<div class="spinner" style="width:32px;height:32px;border:3px solid var(--glass-border);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto;"></div>' +
-                '<p style="margin-top:var(--space-2);color:var(--text-secondary);">🎨 Editing image... This may take 2-5 minutes</p>' +
+                '<div class="result-spinner">' +
+                '<div class="spinner"></div>' +
+                '<p>Editing image... This may take 2-5 minutes</p>' +
                 '</div>';
 
             try {
@@ -4418,32 +5119,32 @@ HTML_PAGE = '''<!DOCTYPE html>
                 if (data.success) {
                     const filename = data.image.split('/').pop();
                     document.getElementById('editResult').innerHTML =
-                        '<div style="display:grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-bottom: var(--space-3);">' +
-                        '<div style="text-align:center;">' +
-                        '<div style="font-size:var(--text-sm);color:var(--text-tertiary);margin-bottom:var(--space-1);">Before</div>' +
-                        '<img src="' + originalImage + '" style="width:100%;border-radius:var(--radius-md);border:1px solid var(--glass-border);">' +
+                        '<div class="result-grid">' +
+                        '<div class="result-grid-item">' +
+                        '<div class="result-grid-label">Before</div>' +
+                        '<img src="' + originalImage + '" class="result-grid-image">' +
                         '</div>' +
-                        '<div style="text-align:center;">' +
-                        '<div style="font-size:var(--text-sm);color:var(--text-tertiary);margin-bottom:var(--space-1);">After</div>' +
-                        '<img src="' + data.image + '?t=' + Date.now() + '" style="width:100%;border-radius:var(--radius-md);border:1px solid var(--accent);">' +
+                        '<div class="result-grid-item">' +
+                        '<div class="result-grid-label">After</div>' +
+                        '<img src="' + data.image + '?t=' + Date.now() + '" class="result-grid-image result-grid-image-highlight">' +
                         '</div>' +
                         '</div>' +
                         '<div class="result-actions">' +
-                        '<a href="' + data.image + '" download="' + filename + '"><button class="btn-green">⬇️ Download</button></a>' +
-                        '<button onclick="toggleFavorite(\\'' + filename + '\\')">⭐ Favorite</button>' +
+                        '<a href="' + data.image + '" download="' + filename + '"><button class="btn-green">Download</button></a>' +
+                        '<button onclick="toggleFavorite(\\'' + filename + '\\')">Favorite</button>' +
                         '</div>';
                     showToast('Edit Complete', 'Your image has been edited', 'success');
                 } else {
-                    document.getElementById('editResult').innerHTML = '<p style="color:#f56565;">❌ ' + data.error + '</p>';
+                    document.getElementById('editResult').innerHTML = '<p class="result-error">Error: ' + data.error + '</p>';
                     showToast('Edit Failed', data.error, 'error');
                 }
             } catch (e) {
-                document.getElementById('editResult').innerHTML = '<p style="color:#f56565;">❌ ' + e.message + '</p>';
+                document.getElementById('editResult').innerHTML = '<p class="result-error">Error: ' + e.message + '</p>';
                 showToast('Error', e.message, 'error');
             } finally {
                 // Always reset button state, even if request times out or fails
                 document.getElementById('editBtn').disabled = false;
-                document.getElementById('editBtn').textContent = '🖌️ Apply Edit';
+                document.getElementById('editBtn').textContent = 'Apply Edit';
             }
         }
 
