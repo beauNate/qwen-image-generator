@@ -31,5 +31,8 @@ favorites.json
 prompt_history.json
 settings.json
 .claude/
+thoughts/
+archive/
 TEST_REPORT.md
 benchmark_gui.py
+HANDOFF.md
