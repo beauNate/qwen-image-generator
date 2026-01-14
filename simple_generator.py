@@ -260,13 +260,21 @@ HTML_PAGE = '''<!DOCTYPE html>
             font-size: var(--text-base);
             line-height: 1.5;
             color: var(--text-primary);
-            max-width: 900px;
+            max-width: 600px;
             margin: 0 auto;
-            padding: var(--space-6);
+            padding: var(--space-4);
             background: linear-gradient(145deg, #1a1a2e 0%, #0d0d1a 50%, #1a0a2e 100%);
             min-height: 100vh;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Responsive - mobile first */
+        @media (max-width: 640px) {
+            body {
+                padding: var(--space-2);
+                max-width: 100%;
+            }
         }
 
         /* Ambient background glow */
@@ -491,7 +499,7 @@ HTML_PAGE = '''<!DOCTYPE html>
             transition: all var(--duration-base) var(--ease-out);
         }
 
-        textarea { height: 110px; resize: vertical; }
+        textarea { height: 110px; resize: vertical; overflow-y: auto; }
 
         textarea:focus, input:focus, select:focus {
             outline: none;
@@ -609,6 +617,62 @@ HTML_PAGE = '''<!DOCTYPE html>
         .btn-green:hover:not(:disabled) {
             background: #3adb62;
             box-shadow: 0 4px 16px rgba(48, 209, 88, 0.35);
+        }
+
+        /* Cancel button - subdued until hovered */
+        .btn-cancel {
+            background: rgba(255, 69, 58, 0.15);
+            color: rgba(255, 69, 58, 0.8);
+            border: 1px solid rgba(255, 69, 58, 0.3);
+            box-shadow: none;
+        }
+        .btn-cancel:hover:not(:disabled) {
+            background: rgba(255, 69, 58, 0.25);
+            color: #FF453A;
+            border-color: rgba(255, 69, 58, 0.5);
+            box-shadow: none;
+            transform: none;
+        }
+
+        /* Cheatsheet buttons */
+        .cheat-btn {
+            padding: 8px 16px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 6px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.15s ease-out;
+            min-height: 44px;
+        }
+        .cheat-btn:hover {
+            background: rgba(102, 126, 234, 0.25);
+            border-color: rgba(102, 126, 234, 0.5);
+        }
+
+        /* Floating AI buttons - 44px touch targets */
+        .ai-float-btn {
+            width: 36px;
+            height: 36px;
+            min-width: 44px;
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 6px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.15s ease-out;
+            opacity: 0.7;
+        }
+        .ai-float-btn:hover {
+            opacity: 1;
+            background: rgba(102, 126, 234, 0.3);
+            border-color: rgba(102, 126, 234, 0.5);
         }
 
         /* Status */
@@ -1194,39 +1258,48 @@ HTML_PAGE = '''<!DOCTYPE html>
         /* Presets - Pill buttons */
         .presets {
             display: flex;
-            gap: var(--space-2);
+            gap: var(--space-1);
             margin-bottom: var(--space-3);
-            flex-wrap: wrap;
+            overflow-x: auto;
+            padding-bottom: 4px;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
         }
+        .presets::-webkit-scrollbar { height: 4px; }
+        .presets::-webkit-scrollbar-track { background: transparent; }
+        .presets::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
 
         .preset-btn {
-            padding: var(--space-2) var(--space-4);
+            padding: 8px 16px;
             background: var(--glass-bg);
             border: 1px solid var(--glass-border);
-            border-radius: var(--radius-full);
+            border-radius: 8px;
             cursor: pointer;
-            font-size: var(--text-sm);
+            font-size: 13px;
             color: var(--text-secondary);
-            transition: all var(--duration-base) var(--ease-spring);
+            transition: all var(--duration-fast) var(--ease-out);
             white-space: nowrap;
+            flex-shrink: 0;
+            min-height: 44px;
+            display: inline-flex;
+            align-items: center;
         }
 
         .preset-btn:hover {
             background: var(--glass-bg-hover);
             border-color: var(--glass-border-hover);
             color: var(--text-primary);
-            transform: translateY(-2px);
         }
 
         .preset-btn:active {
-            transform: scale(0.97) translateY(0);
+            transform: scale(0.98);
         }
 
         .preset-btn.active {
-            background: var(--accent-bg);
-            border-color: rgba(10, 132, 255, 0.25);
-            color: var(--accent);
-            box-shadow: 0 0 12px var(--accent-glow);
+            background: rgba(10, 132, 255, 0.2);
+            border-color: var(--accent);
+            color: #fff;
+            font-weight: 500;
         }
 
         /* History dropdown */
@@ -1721,30 +1794,20 @@ HTML_PAGE = '''<!DOCTYPE html>
             <!-- Quick Presets -->
             <label>Quick Presets</label>
             <div class="presets">
-                <span class="preset-btn active" onclick="applyPreset('quick')" data-preset="quick">🚀 Quick Preview</span>
+                <span class="preset-btn active" onclick="applyPreset('quick')" data-preset="quick">🚀 Fast</span>
+                <span class="preset-btn" onclick="applyPreset('quality')" data-preset="quality">✨ Quality</span>
                 <span class="preset-btn" onclick="applyPreset('portrait')" data-preset="portrait">👤 Portrait</span>
                 <span class="preset-btn" onclick="applyPreset('landscape')" data-preset="landscape">🏞️ Landscape</span>
-                <span class="preset-btn" onclick="applyPreset('wallpaper')" data-preset="wallpaper">🖥️ Wallpaper</span>
-                <span class="preset-btn" onclick="applyPreset('quality')" data-preset="quality">✨ High Quality</span>
-                <span class="preset-btn" onclick="applyPreset('hd_quality')" data-preset="hd_quality">🎬 HD Quality</span>
             </div>
 
-            <label for="prompt">What do you want to create?</label>
-            <textarea id="prompt" placeholder="Describe your image... e.g., A majestic dragon flying over mountains at sunset"></textarea>
-
-            <!-- Prompt Refiner - Local AI -->
-            <div style="margin-top: 10px; margin-bottom: 5px;">
-                <label style="font-size: 0.85em; color: #888;">💻 Local AI</label>
-                <div style="display: flex; gap: 8px; margin-top: 5px;">
-                    <button type="button" onclick="refineLocal('refine')" class="btn-secondary refine-btn" style="flex: 1; padding: 6px 10px; font-size: 0.85em;">
-                        ✨ Refine
-                    </button>
-                    <button type="button" onclick="refineLocal('expand')" class="btn-secondary refine-btn" style="flex: 1; padding: 6px 10px; font-size: 0.85em;">
-                        📝 Expand
-                    </button>
-                    <button type="button" onclick="refineLocal('style')" class="btn-secondary refine-btn" style="flex: 1; padding: 6px 10px; font-size: 0.85em;">
-                        🎲 Style
-                    </button>
+            <label for="prompt">Describe your image</label>
+            <div style="position: relative;">
+                <textarea id="prompt" placeholder="A majestic dragon flying over mountains at sunset..."></textarea>
+                <!-- Floating AI buttons - 44px touch targets -->
+                <div style="position: absolute; right: 4px; top: 4px; display: flex; flex-direction: row; gap: 4px;">
+                    <button type="button" onclick="refineLocal('refine')" title="Refine" class="ai-float-btn">✨</button>
+                    <button type="button" onclick="refineLocal('expand')" title="Expand" class="ai-float-btn">📝</button>
+                    <button type="button" onclick="refineLocal('style')" title="Style" class="ai-float-btn">🎲</button>
                 </div>
             </div>
 
@@ -1774,20 +1837,20 @@ HTML_PAGE = '''<!DOCTYPE html>
                     <div class="option-group">
                         <label for="sampler">Sampler</label>
                         <select id="sampler" title="Algorithm for generating">
-                            <option value="euler" selected>euler (fast, default)</option>
-                            <option value="euler_ancestral">euler_ancestral (creative)</option>
-                            <option value="dpmpp_2m">dpmpp_2m (balanced)</option>
-                            <option value="dpmpp_sde">dpmpp_sde (detailed)</option>
-                            <option value="heun">heun (accurate, slow)</option>
+                            <option value="euler" selected>euler</option>
+                            <option value="euler_ancestral">euler_a</option>
+                            <option value="dpmpp_2m">dpm++ 2m</option>
+                            <option value="dpmpp_sde">dpm++ sde</option>
+                            <option value="heun">heun</option>
                         </select>
                     </div>
                     <div class="option-group">
                         <label for="scheduler">Scheduler</label>
                         <select id="scheduler" title="Controls noise reduction">
-                            <option value="normal" selected>normal (default)</option>
-                            <option value="karras">karras (sharper)</option>
-                            <option value="exponential">exponential (smooth)</option>
-                            <option value="simple">simple (linear)</option>
+                            <option value="normal" selected>normal</option>
+                            <option value="karras">karras</option>
+                            <option value="exponential">exp</option>
+                            <option value="simple">simple</option>
                         </select>
                     </div>
                     <div class="option-group" style="flex: 0 0 auto; min-width: auto;">
@@ -1828,10 +1891,10 @@ HTML_PAGE = '''<!DOCTYPE html>
 
             <div class="btn-row">
                 <button id="generateBtn" onclick="generate()">✨ Generate</button>
-                <button id="cancelBtn" onclick="cancelGeneration()" style="display:none; background:var(--error);">⏹️ Cancel</button>
-                <button class="btn-secondary" id="addToQueueBtn" onclick="addToQueue()">📋 Add to Queue</button>
-                <button class="btn-secondary" id="regenerateBtn" onclick="regenerate()" disabled>🔄 Regenerate</button>
-                <button class="btn-secondary" id="compareBtn" onclick="toggleSplitCompare()">⚔️ Compare</button>
+                <button id="cancelBtn" class="btn-cancel" onclick="cancelGeneration()" style="display:none;">Cancel</button>
+                <button class="btn-secondary" id="addToQueueBtn" onclick="addToQueue()">Queue</button>
+                <button class="btn-secondary" id="regenerateBtn" onclick="regenerate()" disabled>Redo</button>
+                <button class="btn-secondary" id="compareBtn" onclick="toggleSplitCompare()">Compare</button>
             </div>
 
             <!-- Generation Queue -->
@@ -1888,7 +1951,8 @@ HTML_PAGE = '''<!DOCTYPE html>
                 <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
                 <div class="progress-text">
                     <span id="stepText">Step 0/4</span>
-                    <span id="timeRemaining">Calculating...</span>
+                    <span id="percentText">0%</span>
+                    <span id="timeRemaining"></span>
                 </div>
             </div>
         </div>
@@ -1896,12 +1960,20 @@ HTML_PAGE = '''<!DOCTYPE html>
         <div id="result"></div>
 
         <div class="examples">
-            <h3>💡 Try these examples:</h3>
-            <span class="example-btn" onclick="setPrompt('A cute robot cat in a cozy coffee shop, warm lighting, digital art')">Robot Cat</span>
-            <span class="example-btn" onclick="setPrompt('An astronaut riding a horse on Mars, cinematic, highly detailed')">Astronaut</span>
-            <span class="example-btn" onclick="setPrompt('Japanese garden with cherry blossoms and wooden bridge, watercolor')">Japanese Garden</span>
-            <span class="example-btn" onclick="setPrompt('Cyberpunk city at night with neon signs and rain reflections')">Cyberpunk City</span>
-            <span class="example-btn" onclick="setPrompt('Magical forest with glowing mushrooms and fireflies, fantasy art')">Magic Forest</span>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <h3 style="margin: 0;">💡 Prompt Ideas</h3>
+                <button type="button" onclick="showGenerateTemplates()" style="padding: 6px 12px; background: rgba(72, 187, 120, 0.2); border: 1px solid rgba(72, 187, 120, 0.5); border-radius: 6px; color: #fff; cursor: pointer; font-size: 12px;">📋 Templates</button>
+            </div>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                <span class="example-btn" onclick="setPrompt('A cute robot cat in a cozy coffee shop, warm lighting, digital art')">🤖 Robot Cat</span>
+                <span class="example-btn" onclick="setPrompt('Hyperrealistic portrait of a woman with freckles, natural lighting, sharp focus, professional photography')">👤 Portrait</span>
+                <span class="example-btn" onclick="setPrompt('Japanese garden with cherry blossoms and wooden bridge, watercolor style')">🌸 Japanese Garden</span>
+                <span class="example-btn" onclick="setPrompt('Cyberpunk city at night with neon signs and rain reflections, cinematic')">🌃 Cyberpunk</span>
+                <span class="example-btn" onclick="setPrompt('Magical forest with glowing mushrooms and fireflies, fantasy art, detailed')">🍄 Magic Forest</span>
+                <span class="example-btn" onclick="setPrompt('Majestic dragon flying over mountains at sunset, epic fantasy, highly detailed')">🐉 Dragon</span>
+                <span class="example-btn" onclick="setPrompt('Cozy cabin in snowy mountains, warm light from windows, winter atmosphere')">🏔️ Winter Cabin</span>
+                <span class="example-btn" onclick="setPrompt('Futuristic spaceship interior, sci-fi, volumetric lighting, ultra detailed')">🚀 Spaceship</span>
+            </div>
         </div>
     </div>
 
@@ -1922,86 +1994,33 @@ HTML_PAGE = '''<!DOCTYPE html>
             <label for="editPrompt">What changes do you want?</label>
             <textarea id="editPrompt" placeholder="e.g., Change the sky to sunset, Add a rainbow, Make it look like winter"></textarea>
 
-            <!-- Edit Mode Selection (mutually exclusive) -->
+            <!-- Edit Mode Selection - Simple Row of Buttons -->
             <div style="margin: 15px 0;">
-                <label>Edit Mode</label>
-                <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
-                    <!-- Standard Edit -->
-                    <div id="modeStandard" class="edit-mode-option active" style="padding: 12px 15px; background: rgba(102, 126, 234, 0.3); border: 2px solid #667eea; border-radius: 8px; cursor: pointer;" onclick="selectEditMode('standard')">
-                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin: 0;">
-                            <input type="radio" name="editMode" value="standard" checked style="margin: 0;">
-                            <span>🖌️ <strong>Standard Edit</strong> - General image modifications</span>
-                        </label>
-                    </div>
-
-                    <!-- Camera Angle -->
-                    <div id="modeAngles" class="edit-mode-option" style="padding: 12px 15px; background: rgba(255,255,255,0.05); border: 2px solid transparent; border-radius: 8px; cursor: pointer;" onclick="selectEditMode('angles')">
-                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin: 0;">
-                            <input type="radio" name="editMode" value="angles" style="margin: 0;">
-                            <span>📐 <strong>Camera Angles</strong> - Change viewing angle (96 positions)</span>
-                        </label>
-                        <div id="angleControls" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1);">
-                            <!-- Visual Direction Picker -->
-                            <label style="margin-bottom: 10px;">Direction (click to select)</label>
-                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; max-width: 200px; margin: 0 auto 15px;">
-                                <div class="angle-btn" data-dir="front-left quarter view" onclick="selectAngle(this, 'dir')" style="padding: 8px; text-align: center; background: rgba(255,255,255,0.1); border-radius: 4px; cursor: pointer; font-size: 20px;" title="Front-Left">↖</div>
-                                <div class="angle-btn" data-dir="front view" onclick="selectAngle(this, 'dir')" style="padding: 8px; text-align: center; background: rgba(102, 126, 234, 0.4); border-radius: 4px; cursor: pointer; font-size: 20px; border: 2px solid #667eea;" title="Front">⬆</div>
-                                <div class="angle-btn" data-dir="front-right quarter view" onclick="selectAngle(this, 'dir')" style="padding: 8px; text-align: center; background: rgba(255,255,255,0.1); border-radius: 4px; cursor: pointer; font-size: 20px;" title="Front-Right">↗</div>
-                                <div class="angle-btn" data-dir="left side view" onclick="selectAngle(this, 'dir')" style="padding: 8px; text-align: center; background: rgba(255,255,255,0.1); border-radius: 4px; cursor: pointer; font-size: 20px;" title="Left">⬅</div>
-                                <div style="padding: 8px; text-align: center; font-size: 14px; color: #888;">📷</div>
-                                <div class="angle-btn" data-dir="right side view" onclick="selectAngle(this, 'dir')" style="padding: 8px; text-align: center; background: rgba(255,255,255,0.1); border-radius: 4px; cursor: pointer; font-size: 20px;" title="Right">➡</div>
-                                <div class="angle-btn" data-dir="back-left quarter view" onclick="selectAngle(this, 'dir')" style="padding: 8px; text-align: center; background: rgba(255,255,255,0.1); border-radius: 4px; cursor: pointer; font-size: 20px;" title="Back-Left">↙</div>
-                                <div class="angle-btn" data-dir="back view" onclick="selectAngle(this, 'dir')" style="padding: 8px; text-align: center; background: rgba(255,255,255,0.1); border-radius: 4px; cursor: pointer; font-size: 20px;" title="Back">⬇</div>
-                                <div class="angle-btn" data-dir="back-right quarter view" onclick="selectAngle(this, 'dir')" style="padding: 8px; text-align: center; background: rgba(255,255,255,0.1); border-radius: 4px; cursor: pointer; font-size: 20px;" title="Back-Right">↘</div>
-                            </div>
-                            <!-- Elevation & Distance -->
-                            <div class="options-row">
-                                <div class="option-group">
-                                    <label>Height</label>
-                                    <div style="display: flex; gap: 5px;">
-                                        <div class="angle-btn elev-btn" data-elev="low-angle shot" onclick="selectAngle(this, 'elev')" style="flex:1; padding: 8px; text-align: center; background: rgba(255,255,255,0.1); border-radius: 4px; cursor: pointer; font-size: 12px;" title="Low Angle">⬇ Low</div>
-                                        <div class="angle-btn elev-btn active" data-elev="eye-level shot" onclick="selectAngle(this, 'elev')" style="flex:1; padding: 8px; text-align: center; background: rgba(102, 126, 234, 0.4); border: 2px solid #667eea; border-radius: 4px; cursor: pointer; font-size: 12px;" title="Eye Level">👁 Eye</div>
-                                        <div class="angle-btn elev-btn" data-elev="elevated shot" onclick="selectAngle(this, 'elev')" style="flex:1; padding: 8px; text-align: center; background: rgba(255,255,255,0.1); border-radius: 4px; cursor: pointer; font-size: 12px;" title="Elevated">⬆ High</div>
-                                        <div class="angle-btn elev-btn" data-elev="high-angle shot" onclick="selectAngle(this, 'elev')" style="flex:1; padding: 8px; text-align: center; background: rgba(255,255,255,0.1); border-radius: 4px; cursor: pointer; font-size: 12px;" title="Bird's Eye">🦅 Bird</div>
-                                    </div>
-                                </div>
-                                <div class="option-group">
-                                    <label>Zoom</label>
-                                    <div style="display: flex; gap: 5px;">
-                                        <div class="angle-btn dist-btn" data-dist="close-up" onclick="selectAngle(this, 'dist')" style="flex:1; padding: 8px; text-align: center; background: rgba(255,255,255,0.1); border-radius: 4px; cursor: pointer; font-size: 12px;" title="Close-up">🔍 Close</div>
-                                        <div class="angle-btn dist-btn active" data-dist="medium shot" onclick="selectAngle(this, 'dist')" style="flex:1; padding: 8px; text-align: center; background: rgba(102, 126, 234, 0.4); border: 2px solid #667eea; border-radius: 4px; cursor: pointer; font-size: 12px;" title="Medium">📷 Med</div>
-                                        <div class="angle-btn dist-btn" data-dist="wide shot" onclick="selectAngle(this, 'dist')" style="flex:1; padding: 8px; text-align: center; background: rgba(255,255,255,0.1); border-radius: 4px; cursor: pointer; font-size: 12px;" title="Wide">🌄 Wide</div>
-                                    </div>
-                                </div>
-                            </div>
-                            <input type="hidden" id="angleDirection" value="front view">
-                            <input type="hidden" id="angleElevation" value="eye-level shot">
-                            <input type="hidden" id="angleDistance" value="medium shot">
-                        </div>
-                    </div>
-
-                    <!-- Upscale -->
-                    <div id="modeUpscale" class="edit-mode-option" style="padding: 12px 15px; background: rgba(255,255,255,0.05); border: 2px solid transparent; border-radius: 8px; cursor: pointer;" onclick="selectEditMode('upscale')">
-                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin: 0;">
-                            <input type="radio" name="editMode" value="upscale" style="margin: 0;">
-                            <span>🔍 <strong>Upscale</strong> - Enhance resolution</span>
-                        </label>
-                        <div id="upscaleControls" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1);">
-                            <label>Target Resolution</label>
-                            <div style="display: flex; gap: 10px; margin-top: 8px;">
-                                <div class="upscale-btn active" data-res="2K" onclick="selectUpscale('2K')" style="flex: 1; padding: 15px; text-align: center; background: rgba(102, 126, 234, 0.4); border: 2px solid #667eea; border-radius: 8px; cursor: pointer;">
-                                    <div style="font-size: 1.5em; font-weight: bold;">2K</div>
-                                    <div style="font-size: 0.8em; color: #aaa;">~2048px</div>
-                                </div>
-                                <div class="upscale-btn" data-res="4K" onclick="selectUpscale('4K')" style="flex: 1; padding: 15px; text-align: center; background: rgba(255,255,255,0.1); border: 2px solid transparent; border-radius: 8px; cursor: pointer;">
-                                    <div style="font-size: 1.5em; font-weight: bold;">4K</div>
-                                    <div style="font-size: 0.8em; color: #aaa;">~4096px</div>
-                                </div>
-                            </div>
-                            <input type="hidden" id="upscaleRes" value="2K">
-                        </div>
-                    </div>
+                <label>Edit Mode & Tools</label>
+                <div style="display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;">
+                    <button type="button" id="modeStandard" class="mode-btn active" onclick="selectEditMode('standard')" style="padding: 10px 16px; background: rgba(102, 126, 234, 0.4); border: 2px solid #667eea; border-radius: 6px; color: #fff; cursor: pointer; font-size: 13px;">🖌️ Standard</button>
+                    <button type="button" id="modeAngles" class="mode-btn" onclick="selectEditMode('angles')" style="padding: 10px 16px; background: rgba(255,255,255,0.1); border: 2px solid transparent; border-radius: 6px; color: #fff; cursor: pointer; font-size: 13px;">📐 Angles</button>
+                    <button type="button" id="modeUpscale" class="mode-btn" onclick="selectEditMode('upscale')" style="padding: 10px 16px; background: rgba(255,255,255,0.1); border: 2px solid transparent; border-radius: 6px; color: #fff; cursor: pointer; font-size: 13px;">🔍 Upscale</button>
+                    <span style="border-left: 1px solid rgba(255,255,255,0.2); margin: 0 4px;"></span>
+                    <button type="button" onclick="showEditCheatsheet()" style="padding: 10px 16px; background: rgba(72, 187, 120, 0.2); border: 1px solid rgba(72, 187, 120, 0.5); border-radius: 6px; color: #fff; cursor: pointer; font-size: 13px;">📋 Templates</button>
+                    <button type="button" id="angleCheatBtn" onclick="showAngleCheatsheet()" style="padding: 10px 16px; background: rgba(237, 137, 54, 0.2); border: 1px solid rgba(237, 137, 54, 0.5); border-radius: 6px; color: #fff; cursor: pointer; font-size: 13px; display: none;">📐 Angle Guide</button>
                 </div>
+                <!-- Upscale resolution options (shown when upscale mode selected) -->
+                <div id="upscaleControls" style="display: none; margin-top: 12px;">
+                    <div style="display: flex; gap: 10px;">
+                        <button type="button" class="upscale-btn active" data-res="2K" onclick="selectUpscale('2K')" style="flex: 1; padding: 12px; text-align: center; background: rgba(102, 126, 234, 0.4); border: 2px solid #667eea; border-radius: 6px; cursor: pointer; color: #fff;">
+                            <strong>2K</strong> <span style="font-size: 11px; opacity: 0.7;">~2048px</span>
+                        </button>
+                        <button type="button" class="upscale-btn" data-res="4K" onclick="selectUpscale('4K')" style="flex: 1; padding: 12px; text-align: center; background: rgba(255,255,255,0.1); border: 2px solid transparent; border-radius: 6px; cursor: pointer; color: #fff;">
+                            <strong>4K</strong> <span style="font-size: 11px; opacity: 0.7;">~4096px</span>
+                        </button>
+                    </div>
+                    <input type="hidden" id="upscaleRes" value="2K">
+                </div>
+                <!-- Hidden inputs for compatibility -->
+                <input type="hidden" id="angleDirection" value="front">
+                <input type="hidden" id="angleElevation" value="eye">
+                <input type="hidden" id="angleDistance" value="medium">
             </div>
 
             <button onclick="editImage()" id="editBtn">🖌️ Apply Edit</button>
@@ -2087,6 +2106,235 @@ HTML_PAGE = '''<!DOCTYPE html>
                 <button onclick="closeGalleryPicker()" style="background: none; border: none; color: var(--text-tertiary); font-size: 20px; cursor: pointer;">&times;</button>
             </div>
             <div id="galleryPickerGrid" class="gallery" style="grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));"></div>
+        </div>
+    </div>
+
+    <!-- Angle Cheatsheet Modal -->
+    <div class="modal" id="angleCheatsheetModal" onclick="closeAngleCheatsheet(event)" style="display: none;">
+        <div onclick="event.stopPropagation()" style="background: rgba(30, 30, 50, 0.98); backdrop-filter: blur(20px); padding: var(--space-4); border-radius: var(--radius-lg); max-width: 650px; max-height: 85vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-3);">
+                <h3 style="margin: 0;">📐 Camera Angle Prompt Cheatsheet</h3>
+                <button onclick="closeAngleCheatsheet()" style="background: none; border: none; color: var(--text-tertiary); font-size: 20px; cursor: pointer;">&times;</button>
+            </div>
+
+            <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: var(--space-3);">
+                <p style="margin: 0 0 10px 0;"><strong>Format:</strong> <code style="background: rgba(102,126,234,0.2); padding: 2px 6px; border-radius: 4px;">&lt;sks&gt; [direction] [elevation] [distance]</code></p>
+                <p style="margin: 0; color: #aaa;">Copy the angle prompt and paste it into the "Edit Description" field above.</p>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--space-3);">
+                <!-- Directions -->
+                <div style="background: rgba(255,255,255,0.05); padding: var(--space-2); border-radius: var(--radius-md);">
+                    <h4 style="margin: 0 0 10px 0; color: var(--accent); font-size: 13px;">🧭 Direction</h4>
+                    <div style="font-size: 12px; line-height: 1.8;">
+                        <div><code>front</code> - Face camera</div>
+                        <div><code>left</code> - Turn left</div>
+                        <div><code>right</code> - Turn right</div>
+                        <div><code>back</code> - Turn away</div>
+                        <div><code>front_left</code></div>
+                        <div><code>front_right</code></div>
+                        <div><code>back_left</code></div>
+                        <div><code>back_right</code></div>
+                    </div>
+                </div>
+
+                <!-- Elevation -->
+                <div style="background: rgba(255,255,255,0.05); padding: var(--space-2); border-radius: var(--radius-md);">
+                    <h4 style="margin: 0 0 10px 0; color: var(--accent); font-size: 13px;">📏 Elevation</h4>
+                    <div style="font-size: 12px; line-height: 1.8;">
+                        <div><code>overhead</code> - Bird's eye</div>
+                        <div><code>high</code> - Above eye</div>
+                        <div><code>eye</code> - Eye level</div>
+                        <div><code>low</code> - Below eye</div>
+                        <div><code>ground</code> - Ground level</div>
+                    </div>
+                </div>
+
+                <!-- Distance -->
+                <div style="background: rgba(255,255,255,0.05); padding: var(--space-2); border-radius: var(--radius-md);">
+                    <h4 style="margin: 0 0 10px 0; color: var(--accent); font-size: 13px;">🔍 Distance</h4>
+                    <div style="font-size: 12px; line-height: 1.8;">
+                        <div><code>extreme_close</code></div>
+                        <div><code>close</code> - Close up</div>
+                        <div><code>medium_close</code></div>
+                        <div><code>medium</code> - Half body</div>
+                        <div><code>medium_full</code></div>
+                        <div><code>full</code> - Full body</div>
+                        <div><code>wide</code> - With scene</div>
+                        <div><code>extreme_wide</code></div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-top: var(--space-3); padding: var(--space-2); background: rgba(102,126,234,0.1); border-radius: var(--radius-md); border: 1px solid rgba(102,126,234,0.3);">
+                <h4 style="margin: 0 0 10px 0; font-size: 13px;">✨ Examples (click to copy)</h4>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                    <button onclick="copyAnglePrompt('&lt;sks&gt; right eye medium')" style="padding: 6px 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; color: #fff; cursor: pointer; font-size: 12px;">Right profile</button>
+                    <button onclick="copyAnglePrompt('&lt;sks&gt; left eye medium')" style="padding: 6px 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; color: #fff; cursor: pointer; font-size: 12px;">Left profile</button>
+                    <button onclick="copyAnglePrompt('&lt;sks&gt; front high close')" style="padding: 6px 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; color: #fff; cursor: pointer; font-size: 12px;">High angle close</button>
+                    <button onclick="copyAnglePrompt('&lt;sks&gt; front low full')" style="padding: 6px 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; color: #fff; cursor: pointer; font-size: 12px;">Low full body</button>
+                    <button onclick="copyAnglePrompt('&lt;sks&gt; back_left eye medium')" style="padding: 6px 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; color: #fff; cursor: pointer; font-size: 12px;">Over shoulder</button>
+                    <button onclick="copyAnglePrompt('&lt;sks&gt; front overhead wide')" style="padding: 6px 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; color: #fff; cursor: pointer; font-size: 12px;">Bird's eye wide</button>
+                </div>
+            </div>
+
+            <div style="margin-top: var(--space-2); text-align: center;">
+                <button onclick="closeAngleCheatsheet()" style="padding: 10px 24px; background: var(--accent); border: none; border-radius: var(--radius-md); color: #fff; cursor: pointer; font-size: 14px;">Got it!</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Prompt Template Modal -->
+    <div class="modal" id="editCheatsheetModal" onclick="closeEditCheatsheet(event)" style="display: none;">
+        <div onclick="event.stopPropagation()" style="background: rgba(30, 30, 50, 0.98); backdrop-filter: blur(20px); padding: var(--space-4); border-radius: var(--radius-lg); max-width: 500px; max-height: 85vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-3);">
+                <h3 style="margin: 0;">🖌️ Edit Templates</h3>
+                <button onclick="closeEditCheatsheet()" style="background: none; border: none; color: var(--text-tertiary); font-size: 20px; cursor: pointer;">&times;</button>
+            </div>
+
+            <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: var(--space-3);">
+                <p style="margin: 0;">Select a template and fill in keywords, then click "Use Template"</p>
+            </div>
+
+            <!-- Template Selection -->
+            <div style="margin-bottom: var(--space-3);">
+                <label style="font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; display: block;">Template</label>
+                <select id="editTemplateSelect" onchange="updateTemplatePreview()" style="width: 100%; padding: 10px 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; color: #fff; font-size: 14px; cursor: pointer;">
+                    <optgroup label="🌄 Background">
+                        <option value="Change the background to {location}">Change background to...</option>
+                        <option value="Replace background with {scene}">Replace background with...</option>
+                        <option value="Add {weather} weather">Add weather...</option>
+                    </optgroup>
+                    <optgroup label="💡 Lighting">
+                        <option value="Add {type} lighting">Add lighting...</option>
+                        <option value="Change lighting to {time} atmosphere">Change to time of day...</option>
+                        <option value="Add {color} colored lighting">Add colored lighting...</option>
+                    </optgroup>
+                    <optgroup label="🎨 Style">
+                        <option value="Make it look like {style}">Make it look like...</option>
+                        <option value="Convert to {art_style} style">Convert to art style...</option>
+                        <option value="Apply {effect} effect">Apply effect...</option>
+                    </optgroup>
+                    <optgroup label="✨ Add Elements">
+                        <option value="Add {objects} in the scene">Add objects...</option>
+                        <option value="Add falling {particles}">Add falling particles...</option>
+                        <option value="Add {effect} effects">Add visual effects...</option>
+                    </optgroup>
+                    <optgroup label="👤 Portrait">
+                        <option value="Change hair color to {color}">Change hair color...</option>
+                        <option value="Add {accessory}">Add accessory...</option>
+                        <option value="Change outfit to {clothing}">Change outfit...</option>
+                        <option value="Change expression to {expression}">Change expression...</option>
+                    </optgroup>
+                    <optgroup label="🎭 Mood">
+                        <option value="Make it more {mood}">Change mood to...</option>
+                        <option value="Add {atmosphere} atmosphere">Add atmosphere...</option>
+                    </optgroup>
+                </select>
+            </div>
+
+            <!-- Keyword Input -->
+            <div style="margin-bottom: var(--space-3);">
+                <label style="font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; display: block;">Your Keyword</label>
+                <input type="text" id="editTemplateKeyword" placeholder="e.g., sunset beach, neon pink, anime..."
+                       style="width: 100%; padding: 10px 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; color: #fff; font-size: 14px; box-sizing: border-box;"
+                       onkeyup="updateTemplatePreview()" onkeypress="if(event.key==='Enter')applyTemplate()">
+            </div>
+
+            <!-- Preview -->
+            <div style="margin-bottom: var(--space-3); padding: var(--space-2); background: rgba(102, 126, 234, 0.1); border: 1px solid rgba(102, 126, 234, 0.3); border-radius: 6px;">
+                <label style="font-size: 11px; color: var(--text-tertiary); margin-bottom: 4px; display: block;">Preview</label>
+                <div id="templatePreview" style="font-size: 14px; color: #fff; min-height: 20px;">Select a template and enter a keyword</div>
+            </div>
+
+            <!-- Quick Keywords -->
+            <div style="margin-bottom: var(--space-3);">
+                <label style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; display: block;">Quick Keywords (click to use)</label>
+                <div id="quickKeywords" style="display: flex; flex-wrap: wrap; gap: 6px;">
+                    <!-- Populated by JS based on template -->
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div style="display: flex; gap: 10px;">
+                <button onclick="applyTemplate()" style="flex: 1; padding: 12px; background: var(--accent); border: none; border-radius: var(--radius-md); color: #fff; cursor: pointer; font-size: 14px; font-weight: 500;">✓ Use Template</button>
+                <button onclick="closeEditCheatsheet()" style="padding: 12px 20px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: var(--radius-md); color: #fff; cursor: pointer; font-size: 14px;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Generate Templates Modal -->
+    <div class="modal" id="generateTemplatesModal" onclick="closeGenerateTemplates(event)" style="display: none;">
+        <div onclick="event.stopPropagation()" style="background: rgba(30, 30, 50, 0.98); backdrop-filter: blur(20px); padding: var(--space-4); border-radius: var(--radius-lg); max-width: 500px; max-height: 85vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-3);">
+                <h3 style="margin: 0;">✨ Generate Templates</h3>
+                <button onclick="closeGenerateTemplates()" style="background: none; border: none; color: var(--text-tertiary); font-size: 20px; cursor: pointer;">&times;</button>
+            </div>
+
+            <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: var(--space-3);">
+                <p style="margin: 0;">Select a template, fill in your subject, and generate!</p>
+            </div>
+
+            <!-- Template Selection -->
+            <div style="margin-bottom: var(--space-3);">
+                <label style="font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; display: block;">Template</label>
+                <select id="genTemplateSelect" onchange="updateGenTemplatePreview()" style="width: 100%; padding: 10px 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; color: #fff; font-size: 14px; cursor: pointer;">
+                    <optgroup label="👤 People">
+                        <option value="Hyperrealistic portrait of {subject}, natural lighting, sharp focus, professional photography">Realistic Portrait</option>
+                        <option value="Anime style illustration of {subject}, vibrant colors, detailed">Anime Character</option>
+                        <option value="Fantasy warrior {subject}, epic armor, dramatic lighting, digital art">Fantasy Warrior</option>
+                    </optgroup>
+                    <optgroup label="🏞️ Landscapes">
+                        <option value="{subject} landscape at sunset, golden hour, cinematic, breathtaking">Sunset Landscape</option>
+                        <option value="Magical {subject} with glowing elements, fantasy art, ethereal atmosphere">Fantasy Scene</option>
+                        <option value="{subject} in winter with snow, cozy atmosphere, warm lights">Winter Scene</option>
+                    </optgroup>
+                    <optgroup label="🎨 Art Styles">
+                        <option value="{subject}, oil painting style, classical art, museum quality">Oil Painting</option>
+                        <option value="{subject}, watercolor style, soft colors, artistic">Watercolor</option>
+                        <option value="{subject}, Studio Ghibli style, whimsical, animated">Studio Ghibli</option>
+                        <option value="{subject}, cyberpunk aesthetic, neon lights, futuristic">Cyberpunk</option>
+                    </optgroup>
+                    <optgroup label="🐾 Animals & Creatures">
+                        <option value="Cute {subject}, adorable, fluffy, heartwarming, detailed fur">Cute Animal</option>
+                        <option value="Majestic {subject}, powerful, detailed, nature photography style">Majestic Animal</option>
+                        <option value="Mythical {subject} creature, fantasy art, magical, highly detailed">Fantasy Creature</option>
+                    </optgroup>
+                    <optgroup label="🏛️ Architecture & Objects">
+                        <option value="{subject} interior, cozy atmosphere, warm lighting, detailed">Cozy Interior</option>
+                        <option value="Futuristic {subject}, sci-fi design, sleek, volumetric lighting">Sci-Fi Design</option>
+                        <option value="Ancient {subject}, mysterious, dramatic lighting, epic scale">Ancient/Epic</option>
+                    </optgroup>
+                </select>
+            </div>
+
+            <!-- Subject Input -->
+            <div style="margin-bottom: var(--space-3);">
+                <label style="font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; display: block;">Your Subject</label>
+                <input type="text" id="genTemplateSubject" placeholder="e.g., a woman with red hair, mountain range, dragon..."
+                       style="width: 100%; padding: 10px 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; color: #fff; font-size: 14px; box-sizing: border-box;"
+                       onkeyup="updateGenTemplatePreview()" onkeypress="if(event.key==='Enter')applyGenTemplate()">
+            </div>
+
+            <!-- Preview -->
+            <div style="margin-bottom: var(--space-3); padding: var(--space-2); background: rgba(102, 126, 234, 0.1); border: 1px solid rgba(102, 126, 234, 0.3); border-radius: 6px;">
+                <label style="font-size: 11px; color: var(--text-tertiary); margin-bottom: 4px; display: block;">Preview</label>
+                <div id="genTemplatePreview" style="font-size: 13px; color: #fff; min-height: 40px; line-height: 1.4;">Select a template and enter your subject</div>
+            </div>
+
+            <!-- Quick Subjects -->
+            <div style="margin-bottom: var(--space-3);">
+                <label style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; display: block;">Quick Subjects (click to use)</label>
+                <div id="genQuickSubjects" style="display: flex; flex-wrap: wrap; gap: 6px;">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div style="display: flex; gap: 10px;">
+                <button onclick="applyGenTemplate()" style="flex: 1; padding: 12px; background: var(--accent); border: none; border-radius: var(--radius-md); color: #fff; cursor: pointer; font-size: 14px; font-weight: 500;">✓ Use Template</button>
+                <button onclick="closeGenerateTemplates()" style="padding: 12px 20px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: var(--radius-md); color: #fff; cursor: pointer; font-size: 14px;">Cancel</button>
+            </div>
         </div>
     </div>
 
@@ -2545,14 +2793,16 @@ HTML_PAGE = '''<!DOCTYPE html>
                 const progressContainer = document.getElementById('progressContainer');
                 const statusText = document.getElementById('statusText');
 
+                const percentText = document.getElementById('percentText');
                 if (data.status === 'loading') {
                     statusText.textContent = '📦 ' + data.message;
                     progressContainer.style.display = 'none';
                 } else if (data.status === 'generating') {
                     progressContainer.style.display = 'block';
-                    const percent = (data.current_step / data.total_steps) * 100;
+                    const percent = Math.round((data.current_step / data.total_steps) * 100);
                     progressFill.style.width = percent + '%';
                     stepText.textContent = 'Step ' + data.current_step + '/' + data.total_steps;
+                    percentText.textContent = percent + '%';
                     statusText.textContent = '🎨 Generating...';
                     if (data.current_step > 0 && startTime) {
                         const elapsed = (Date.now() - startTime) / 1000;
@@ -2561,6 +2811,7 @@ HTML_PAGE = '''<!DOCTYPE html>
                     }
                 } else if (data.status === 'done') {
                     progressFill.style.width = '100%';
+                    percentText.textContent = '100%';
                     timeRemaining.textContent = 'Done!';
                 }
             } catch (e) {}
@@ -2592,6 +2843,7 @@ HTML_PAGE = '''<!DOCTYPE html>
                     }
                 }
 
+                const percentText = document.getElementById('percentText');
                 if (data.status === 'loading') {
                     statusText.textContent = totalBatchSize > 1
                         ? '📦 Image ' + (currentBatchIndex + 1) + '/' + totalBatchSize + ': Loading models...'
@@ -2599,9 +2851,10 @@ HTML_PAGE = '''<!DOCTYPE html>
                     progressContainer.style.display = 'none';
                 } else if (data.status === 'generating') {
                     progressContainer.style.display = 'block';
-                    const percent = (data.current_step / data.total_steps) * 100;
+                    const percent = Math.round((data.current_step / data.total_steps) * 100);
                     progressFill.style.width = percent + '%';
                     stepText.textContent = 'Step ' + data.current_step + '/' + data.total_steps;
+                    percentText.textContent = percent + '%';
                     statusText.textContent = totalBatchSize > 1
                         ? '🎨 Image ' + (currentBatchIndex + 1) + '/' + totalBatchSize + ' generating...'
                         : '🎨 Generating...';
@@ -2612,6 +2865,7 @@ HTML_PAGE = '''<!DOCTYPE html>
                     }
                 } else if (data.status === 'done') {
                     progressFill.style.width = '100%';
+                    percentText.textContent = '100%';
                     timeRemaining.textContent = 'Done!';
                 }
             } catch (e) {}
@@ -3235,28 +3489,202 @@ HTML_PAGE = '''<!DOCTYPE html>
         function selectEditMode(mode) {
             currentEditMode = mode;
 
-            // Update visual selection
-            document.querySelectorAll('.edit-mode-option').forEach(el => {
-                el.style.background = 'rgba(255,255,255,0.05)';
+            // Update visual selection for mode buttons
+            document.querySelectorAll('.mode-btn').forEach(el => {
+                el.style.background = 'rgba(255,255,255,0.1)';
                 el.style.borderColor = 'transparent';
             });
             const selected = document.getElementById('mode' + mode.charAt(0).toUpperCase() + mode.slice(1));
-            selected.style.background = 'rgba(102, 126, 234, 0.3)';
-            selected.style.borderColor = '#667eea';
+            if (selected) {
+                selected.style.background = 'rgba(102, 126, 234, 0.4)';
+                selected.style.borderColor = '#667eea';
+            }
 
-            // Update radio button
-            document.querySelector('input[name="editMode"][value="' + mode + '"]').checked = true;
-
-            // Show/hide angle controls and upscale controls
-            document.getElementById('angleControls').style.display = mode === 'angles' ? 'block' : 'none';
+            // Show/hide upscale controls and angle guide button
             document.getElementById('upscaleControls').style.display = mode === 'upscale' ? 'block' : 'none';
+            document.getElementById('angleCheatBtn').style.display = mode === 'angles' ? 'inline-block' : 'none';
 
-            // For upscale mode, prompt is optional (auto-generated)
+            // Update placeholder based on mode
             if (mode === 'upscale') {
                 document.getElementById('editPrompt').placeholder = 'Optional: describe any additional changes, or leave blank for pure upscale';
+            } else if (mode === 'angles') {
+                document.getElementById('editPrompt').placeholder = 'Enter angle prompt (e.g., <sks> right eye medium) - click Angle Guide for help';
             } else {
-                document.getElementById('editPrompt').placeholder = 'Describe what you want to change...';
+                document.getElementById('editPrompt').placeholder = 'Describe what you want to change... (click Templates for ideas)';
             }
+        }
+
+        // Angle cheatsheet modal functions
+        function showAngleCheatsheet() {
+            document.getElementById('angleCheatsheetModal').style.display = 'flex';
+        }
+
+        function closeAngleCheatsheet(event) {
+            if (!event || event.target === event.currentTarget) {
+                document.getElementById('angleCheatsheetModal').style.display = 'none';
+            }
+        }
+
+        function copyAnglePrompt(prompt) {
+            // Decode HTML entities
+            const decoded = prompt.replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+            navigator.clipboard.writeText(decoded).then(() => {
+                showToast('Copied!', 'Angle prompt copied to clipboard', 'success');
+                // Also paste into the edit prompt field
+                document.getElementById('editPrompt').value = decoded;
+                closeAngleCheatsheet();
+            }).catch(err => {
+                showToast('Copy Failed', 'Please copy manually', 'warning');
+            });
+        }
+
+        // Edit template modal functions
+        const templateKeywords = {
+            'location': ['sunset beach', 'mountain landscape', 'city skyline', 'forest', 'desert', 'ocean', 'space', 'castle'],
+            'scene': ['tropical paradise', 'snowy mountains', 'cherry blossom garden', 'futuristic city', 'medieval village', 'underwater'],
+            'weather': ['rainy', 'snowy', 'foggy', 'stormy', 'sunny', 'cloudy'],
+            'type': ['golden hour', 'dramatic', 'soft', 'neon', 'studio', 'natural', 'cinematic', 'rim'],
+            'time': ['sunset', 'sunrise', 'night', 'golden hour', 'blue hour', 'midday'],
+            'color': ['neon pink', 'blue', 'purple', 'warm orange', 'cool blue', 'green'],
+            'style': ['an oil painting', 'a watercolor', 'a photograph', 'a movie scene', 'a dream', 'a vintage photo'],
+            'art_style': ['anime', 'pixar', 'studio ghibli', 'impressionist', 'pop art', 'cyberpunk', 'steampunk'],
+            'effect': ['vintage film', 'HDR', 'bokeh', 'motion blur', 'double exposure', 'glitch'],
+            'objects': ['butterflies', 'fireflies', 'birds', 'flowers', 'stars', 'lanterns', 'bubbles'],
+            'particles': ['cherry blossoms', 'snow', 'leaves', 'sparkles', 'confetti', 'rain', 'petals'],
+            'color': ['blonde', 'red', 'blue', 'pink', 'silver', 'black', 'purple'],
+            'accessory': ['sunglasses', 'a hat', 'earrings', 'a crown', 'glasses', 'a scarf'],
+            'clothing': ['formal suit', 'casual outfit', 'elegant dress', 'leather jacket', 'traditional kimono'],
+            'expression': ['smiling', 'serious', 'surprised', 'laughing', 'thoughtful', 'confident'],
+            'mood': ['dramatic and moody', 'bright and cheerful', 'dark and mysterious', 'romantic', 'ethereal'],
+            'atmosphere': ['dreamy', 'mysterious', 'romantic', 'energetic', 'peaceful', 'dramatic']
+        };
+
+        function showEditCheatsheet() {
+            document.getElementById('editCheatsheetModal').style.display = 'flex';
+            document.getElementById('editTemplateKeyword').value = '';
+            updateTemplatePreview();
+        }
+
+        function closeEditCheatsheet(event) {
+            if (!event || event.target === event.currentTarget) {
+                document.getElementById('editCheatsheetModal').style.display = 'none';
+            }
+        }
+
+        function updateTemplatePreview() {
+            const template = document.getElementById('editTemplateSelect').value;
+            const keyword = document.getElementById('editTemplateKeyword').value.trim();
+            const preview = document.getElementById('templatePreview');
+            const quickKeywordsDiv = document.getElementById('quickKeywords');
+
+            // Extract placeholder name from template
+            const placeholderMatch = template.match(/\{(\w+)\}/);
+            const placeholderName = placeholderMatch ? placeholderMatch[1] : '';
+
+            // Update preview
+            if (keyword) {
+                preview.textContent = template.replace(/\{[^}]+\}/, keyword);
+                preview.style.color = '#fff';
+            } else {
+                preview.textContent = template;
+                preview.style.color = 'var(--text-tertiary)';
+            }
+
+            // Update quick keywords
+            const keywords = templateKeywords[placeholderName] || ['example 1', 'example 2', 'example 3'];
+            quickKeywordsDiv.innerHTML = keywords.map(kw =>
+                `<button class="cheat-btn" onclick="setTemplateKeyword('${kw}')">${kw}</button>`
+            ).join('');
+        }
+
+        function setTemplateKeyword(keyword) {
+            document.getElementById('editTemplateKeyword').value = keyword;
+            updateTemplatePreview();
+        }
+
+        function applyTemplate() {
+            const template = document.getElementById('editTemplateSelect').value;
+            const keyword = document.getElementById('editTemplateKeyword').value.trim();
+
+            if (!keyword) {
+                showToast('Missing Keyword', 'Please enter a keyword for the template', 'warning');
+                return;
+            }
+
+            const finalPrompt = template.replace(/\{[^}]+\}/, keyword);
+            document.getElementById('editPrompt').value = finalPrompt;
+            closeEditCheatsheet();
+            showToast('Template Applied', 'Prompt ready - click Apply Edit', 'success');
+        }
+
+        // Generate Templates Modal Functions
+        const genQuickSubjects = {
+            'people': ['a woman with curly red hair', 'an old wizard with long beard', 'a young boy with freckles', 'a cyberpunk girl with neon hair'],
+            'landscape': ['mountain range', 'tropical beach', 'enchanted forest', 'desert oasis', 'snowy village'],
+            'animal': ['golden retriever puppy', 'majestic lion', 'owl', 'red panda', 'phoenix'],
+            'object': ['cozy cabin', 'spaceship interior', 'ancient temple', 'steampunk clock']
+        };
+
+        function showGenerateTemplates() {
+            document.getElementById('generateTemplatesModal').style.display = 'flex';
+            document.getElementById('genTemplateSubject').value = '';
+            updateGenTemplatePreview();
+        }
+
+        function closeGenerateTemplates(event) {
+            if (!event || event.target === event.currentTarget) {
+                document.getElementById('generateTemplatesModal').style.display = 'none';
+            }
+        }
+
+        function updateGenTemplatePreview() {
+            const template = document.getElementById('genTemplateSelect').value;
+            const subject = document.getElementById('genTemplateSubject').value.trim();
+            const preview = document.getElementById('genTemplatePreview');
+            const quickSubjectsDiv = document.getElementById('genQuickSubjects');
+
+            // Update preview
+            if (subject) {
+                preview.textContent = template.replace(/\{subject\}/g, subject);
+                preview.style.color = '#fff';
+            } else {
+                preview.textContent = template;
+                preview.style.color = 'var(--text-tertiary)';
+            }
+
+            // Determine category for quick subjects
+            const selectedOption = document.getElementById('genTemplateSelect').selectedOptions[0];
+            const optGroup = selectedOption.parentElement.label || '';
+            let category = 'people';
+            if (optGroup.includes('Landscape')) category = 'landscape';
+            else if (optGroup.includes('Animal')) category = 'animal';
+            else if (optGroup.includes('Architecture')) category = 'object';
+
+            // Update quick subjects
+            const subjects = genQuickSubjects[category] || genQuickSubjects['people'];
+            quickSubjectsDiv.innerHTML = subjects.map(subj =>
+                `<button class="cheat-btn" onclick="setGenTemplateSubject('${subj}')">${subj}</button>`
+            ).join('');
+        }
+
+        function setGenTemplateSubject(subject) {
+            document.getElementById('genTemplateSubject').value = subject;
+            updateGenTemplatePreview();
+        }
+
+        function applyGenTemplate() {
+            const template = document.getElementById('genTemplateSelect').value;
+            const subject = document.getElementById('genTemplateSubject').value.trim();
+
+            if (!subject) {
+                showToast('Missing Subject', 'Please enter a subject for the template', 'warning');
+                return;
+            }
+
+            const finalPrompt = template.replace(/\{subject\}/g, subject);
+            document.getElementById('prompt').value = finalPrompt;
+            closeGenerateTemplates();
+            showToast('Template Applied', 'Ready to generate!', 'success');
         }
 
         // Visual angle picker selection
@@ -3316,7 +3744,6 @@ HTML_PAGE = '''<!DOCTYPE html>
 
             const useAnglesLora = currentEditMode === 'angles';
             const useUpscaleLora = currentEditMode === 'upscale';
-            const anglePrompt = useAnglesLora ? getAnglePrompt() : '';
 
             // For upscale mode, auto-generate prompt if empty
             if (useUpscaleLora) {
@@ -3327,12 +3754,24 @@ HTML_PAGE = '''<!DOCTYPE html>
                 } else {
                     editPrompt = upscaleTrigger + ' ' + editPrompt;  // Upscale + modifications
                 }
-            } else if (!editPrompt && !useAnglesLora) {
+            } else if (useAnglesLora) {
+                // For angles mode, user must provide the angle prompt manually
+                if (!editPrompt) {
+                    showToast('Missing Angle Prompt', 'Click the cheatsheet button and copy an angle prompt', 'warning');
+                    return;
+                }
+                // Validate it contains the <sks> trigger
+                if (!editPrompt.includes('<sks>')) {
+                    showToast('Invalid Angle Prompt', 'Angle prompts must include <sks> trigger (see cheatsheet)', 'warning');
+                    return;
+                }
+            } else if (!editPrompt) {
                 showToast('Missing Description', 'Please describe the changes', 'warning');
                 return;
-            } else if (!editPrompt && useAnglesLora) {
-                editPrompt = anglePrompt;  // Camera angle only
             }
+
+            // For angles mode, the editPrompt IS the angle prompt
+            const anglePrompt = useAnglesLora ? editPrompt : '';
 
             const originalImage = uploadedImageData;
             document.getElementById('editBtn').disabled = true;
