@@ -788,15 +788,14 @@ HTML_PAGE = '''<!DOCTYPE html>
             transform: none;
         }
 
-        .btn-green {
-            background: var(--success);
-            box-shadow: 0 2px 8px var(--success-glow);
+        .btn-secondary:disabled {
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--text-quaternary);
+            border-color: rgba(255, 255, 255, 0.06);
+            cursor: not-allowed;
         }
 
-        .btn-green:hover:not(:disabled) {
-            background: var(--success);
-            box-shadow: 0 4px 16px var(--success-glow);
-        }
+        /* .btn-green removed - use accent color for all primary actions */
 
         /* Cancel button - subdued until hovered */
         .btn-cancel {
@@ -1698,10 +1697,11 @@ HTML_PAGE = '''<!DOCTYPE html>
         }
 
         .filter-tab.active {
-            background: var(--accent-ring);
+            background: var(--accent-bg-active);
             border-color: var(--accent);
             color: var(--text-primary);
             font-weight: 600;
+            box-shadow: 0 0 0 2px var(--accent-ring);
         }
 
         /* Presets - Pill buttons */
@@ -1718,15 +1718,16 @@ HTML_PAGE = '''<!DOCTYPE html>
         .presets::-webkit-scrollbar-track { background: transparent; }
         .presets::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
 
+        /* Preset buttons - unified with model-btn active states */
         .preset-btn {
             padding: var(--space-2) var(--space-4);
             background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
+            border: 2px solid var(--glass-border);
             border-radius: var(--radius-md);
             cursor: pointer;
             font-size: var(--text-footnote);
             color: var(--text-secondary);
-            transition: all var(--duration-fast) var(--ease-out);
+            transition: all var(--duration-base) var(--ease-out);
             white-space: nowrap;
             flex: 1;
             min-width: 100px;
@@ -1748,7 +1749,7 @@ HTML_PAGE = '''<!DOCTYPE html>
 
         .preset-btn.active {
             background: var(--accent-bg-active);
-            border: 2px solid var(--accent);
+            border-color: var(--accent);
             color: var(--text-primary);
             font-weight: 600;
             box-shadow: 0 0 0 2px var(--accent-ring);
@@ -2887,21 +2888,22 @@ HTML_PAGE = '''<!DOCTYPE html>
                     <span class="model-subtitle">Animate an image</span>
                 </button>
             </div>
+            <div id="i2vLimitationHint" class="option-hint" style="display: block; margin-top: -8px; margin-bottom: 12px;">LTX only supports Text to Video. Select Hunyuan or Wan for Image to Video.</div>
 
             <!-- Video Model Selection -->
             <label>Model</label>
             <div class="model-selector">
                 <button type="button" id="videoModelLTX" class="model-btn active" onclick="selectVideoModel('ltx')">
                     <span class="model-title">LTX 2B</span>
-                    <span class="model-subtitle">Fast (~30s)</span>
+                    <span class="model-subtitle">Fast ~30s</span>
                 </button>
                 <button type="button" id="videoModelHunyuan" class="model-btn" onclick="selectVideoModel('hunyuan')">
                     <span class="model-title">Hunyuan 13B</span>
-                    <span class="model-subtitle">Quality (~3min)</span>
+                    <span class="model-subtitle">Quality ~3m</span>
                 </button>
                 <button type="button" id="videoModelWan" class="model-btn" onclick="selectVideoModel('wan')">
                     <span class="model-title">Wan 14B</span>
-                    <span class="model-subtitle">Best (~5min)</span>
+                    <span class="model-subtitle">Best ~5m</span>
                 </button>
             </div>
 
@@ -3515,7 +3517,7 @@ HTML_PAGE = '''<!DOCTYPE html>
                         const filename = data.image.split('/').pop();
                         result.innerHTML = '<img src="' + data.image + '?t=' + Date.now() + '">' +
                             '<div class="result-actions">' +
-                            '<a href="' + data.image + '" download="' + filename + '"><button class="btn-green">Download</button></a>' +
+                            '<a href="' + data.image + '" download="' + filename + '"><button>Download</button></a>' +
                             '<button onclick="toggleFavorite(\\'' + filename + '\\')">Favorite</button>' +
                             '</div>' +
                             '<div class="result-info">Queue item ' + (i + 1) + ' of ' + generationQueue.length + '</div>';
@@ -3761,7 +3763,15 @@ HTML_PAGE = '''<!DOCTYPE html>
                 const times = { lightning: { 512: 1, 768: 2, 1024: 3, 1536: 5 }, normal: { 512: 7, 768: 12, 1024: 16, 1536: 25 } };
                 totalTime = (times[mode][resolution] || times[mode][1024]) * batch;
             }
-            document.getElementById('timeEstimate').textContent = 'Estimated: ~' + totalTime + ' min' + (batch > 1 ? ' (for ' + batch + ' images)' : '');
+            // Standardized time format: ~30s, ~1m, ~3m
+            let timeStr;
+            if (totalTime < 1) {
+                timeStr = '~' + Math.round(totalTime * 60) + 's';
+            } else {
+                timeStr = '~' + Math.round(totalTime) + 'm';
+            }
+            const batchStr = batch > 1 ? ' (' + batch + ' images)' : '';
+            document.getElementById('timeEstimate').textContent = 'Estimated: ' + timeStr + batchStr;
         }
 
         function formatTime(seconds) {
@@ -3979,7 +3989,7 @@ HTML_PAGE = '''<!DOCTYPE html>
                     const filename = generatedImages[0].split('/').pop();
                     result.innerHTML = '<img src="' + generatedImages[0] + '?t=' + Date.now() + '">' +
                         '<div class="result-actions">' +
-                        '<a href="' + generatedImages[0] + '" download="' + filename + '"><button class="btn-green">Download</button></a>' +
+                        '<a href="' + generatedImages[0] + '" download="' + filename + '"><button>Download</button></a>' +
                         '<button onclick="toggleFavorite(\\'' + filename + '\\')">Favorite</button>' +
                         '<button class="btn-secondary" onclick="copySeed()">Copy Seed</button>' +
                         '</div>' +
@@ -3992,7 +4002,7 @@ HTML_PAGE = '''<!DOCTYPE html>
                         html += '<div class="batch-item">' +
                             '<img src="' + img + '?t=' + Date.now() + '">' +
                             '<div class="batch-item-actions">' +
-                            '<a href="' + img + '" download="' + filename + '"><button class="btn-green btn-sm">DL</button></a>' +
+                            '<a href="' + img + '" download="' + filename + '"><button class="btn-sm">DL</button></a>' +
                             '<button class="btn-sm" onclick="toggleFavorite(\\'' + filename + '\\')">Fav</button>' +
                             '</div>' +
                             '<div class="batch-seed">Seed: ' + seeds[idx] + '</div>' +
@@ -4276,12 +4286,15 @@ HTML_PAGE = '''<!DOCTYPE html>
 
             // Show/hide I2V option based on model support
             const i2vBtn = document.getElementById('videoModeI2V');
+            const i2vHint = document.getElementById('i2vLimitationHint');
             if (model === 'ltx') {
                 i2vBtn.style.opacity = '0.4';
                 i2vBtn.style.pointerEvents = 'none';
+                if (i2vHint) i2vHint.style.display = 'block';
             } else {
                 i2vBtn.style.opacity = '1';
                 i2vBtn.style.pointerEvents = 'auto';
+                if (i2vHint) i2vHint.style.display = 'none';
             }
 
             updateVideoEstimate();
@@ -4360,9 +4373,17 @@ HTML_PAGE = '''<!DOCTYPE html>
             const maxTime = Math.ceil(baseTime * 1.3);
 
             const durationSec = Math.round(duration / 16); // 16 fps
-            const timeStr = minTime < 1 ? '~30 seconds' : `~${minTime}-${maxTime} min`;
+            // Standardized time format: ~30s, ~3m, ~5m
+            let timeStr;
+            if (minTime < 1) {
+                timeStr = '~30s';
+            } else if (minTime === maxTime) {
+                timeStr = '~' + minTime + 'm';
+            } else {
+                timeStr = '~' + minTime + '-' + maxTime + 'm';
+            }
             document.getElementById('videoTimeEstimate').textContent =
-                `${modelName}: ${timeStr} (${resolution}, ${durationSec} sec)`;
+                modelName + ': ' + timeStr + ' (' + resolution + ', ' + durationSec + 's)';
         }
 
         async function refineVideoPrompt(mode) {
@@ -4569,7 +4590,7 @@ HTML_PAGE = '''<!DOCTYPE html>
                     const q = String.fromCharCode(39);
                     const timeAgo = formatRelativeTime(item.timestamp);
                     const size = formatFileSize(item.size);
-                    const typeBadge = type === 'lightning' ? 'L' : type === 'edit' ? 'E' : 'N';
+                    const typeBadge = type === 'lightning' ? 'Lightning' : type === 'edit' ? 'Edit' : 'Normal';
                     return '<div class="gallery-item" data-type="' + type + '" data-filename="' + img + '" data-timestamp="' + item.timestamp + '">' +
                         '<img src="/output/' + img + '" onclick="handleGalleryClick(' + q + img + q + ')">' +
                         '<div class="gallery-actions">' +
@@ -5107,7 +5128,7 @@ HTML_PAGE = '''<!DOCTYPE html>
                         '</div>' +
                         '</div>' +
                         '<div class="result-actions">' +
-                        '<a href="' + data.image + '" download="' + filename + '"><button class="btn-green">Download</button></a>' +
+                        '<a href="' + data.image + '" download="' + filename + '"><button>Download</button></a>' +
                         '<button onclick="toggleFavorite(\\'' + filename + '\\')">Favorite</button>' +
                         '</div>';
                     showToast('Edit Complete', 'Your image has been edited', 'success');
