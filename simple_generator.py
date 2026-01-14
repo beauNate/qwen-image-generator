@@ -5338,7 +5338,7 @@ def get_progress(prompt_id):
                     return {"status": "error", "message": "Generation failed"}
                 if history[prompt_id].get('outputs', {}):
                     return {"status": "done", "current_step": 30, "total_steps": 30}
-        except:
+        except Exception:
             pass
 
         is_running = any(item[1] == prompt_id for item in queue_data.get('queue_running', []))
@@ -5381,7 +5381,7 @@ def load_settings():
             with open(SETTINGS_FILE, 'r') as f:
                 saved = json.load(f)
                 defaults.update(saved)
-    except:
+    except Exception:
         pass
     return defaults
 
@@ -5391,7 +5391,7 @@ def save_settings(settings):
         with open(SETTINGS_FILE, 'w') as f:
             json.dump(settings, f, indent=2)
         return True
-    except:
+    except Exception:
         return False
 
 # Global settings
@@ -5561,7 +5561,7 @@ def wait_for_image(prompt_id):
                             path = f"/output/{subfolder}/{img['filename']}" if subfolder else f"/output/{img['filename']}"
                             return {"success": True, "image": path}
                     return {"success": False, "error": "No image in output"}
-            except:
+            except Exception:
                 pass
         return {"success": False, "error": "Timeout"}
     except Exception as e:
@@ -5573,7 +5573,7 @@ def get_gallery_images():
         files = [f for f in os.listdir(output_dir) if f.endswith('.png') and not f.startswith('.')]
         files.sort(key=lambda x: os.path.getmtime(os.path.join(output_dir, x)), reverse=True)
         return files
-    except:
+    except Exception:
         return []
 
 def get_gallery_images_with_meta():
@@ -5592,7 +5592,7 @@ def get_gallery_images_with_meta():
             })
         result.sort(key=lambda x: x['timestamp'], reverse=True)
         return result
-    except:
+    except Exception:
         return []
 
 def delete_image(filename):
@@ -5619,7 +5619,7 @@ def delete_history_item(index):
         try:
             with open(HISTORY_FILE, 'w') as f:
                 json.dump(prompt_history, f)
-        except:
+        except Exception:
             pass
         return {"success": True, "history": prompt_history}
     except Exception as e:
@@ -5629,7 +5629,7 @@ def save_favorites(favorites):
     try:
         with open(FAVORITES_FILE, 'w') as f:
             json.dump(favorites, f)
-    except:
+    except Exception:
         pass
 
 def save_history(item):
@@ -5645,7 +5645,7 @@ def save_history(item):
         prompt_history = prompt_history[:20]  # Keep last 20
         with open(HISTORY_FILE, 'w') as f:
             json.dump(prompt_history, f)
-    except:
+    except Exception:
         pass
 
 def get_edit_workflow(prompt, seed=None, use_angles_lora=False, angle_prompt="", use_upscale_lora=False):
@@ -6352,7 +6352,7 @@ def wait_for_video(prompt_id):
                     # If we got here with outputs but no video, might still be processing
                     if outputs:
                         return {"success": False, "error": "No video in output"}
-            except:
+            except Exception:
                 pass
         return {"success": False, "error": "Timeout waiting for video"}
     except Exception as e:
@@ -6449,7 +6449,7 @@ def edit_image(image_data, prompt, use_angles_lora=False, angle_prompt="", use_u
                             subfolder = img.get('subfolder', '')
                             path = f"/output/{subfolder}/{img['filename']}" if subfolder else f"/output/{img['filename']}"
                             return {"success": True, "image": path, "seed": seed}
-            except:
+            except Exception:
                 pass
 
         return {"success": False, "error": "Edit timeout"}
@@ -6460,7 +6460,7 @@ def check_comfyui():
     try:
         urllib.request.urlopen(f"{COMFYUI_URL}/system_stats", timeout=2)
         return True
-    except:
+    except Exception:
         return False
 
 def start_comfyui():
@@ -6482,7 +6482,7 @@ def get_local_ip():
         ip = s.getsockname()[0]
         s.close()
         return ip
-    except:
+    except Exception:
         return "localhost"
 
 def main():
