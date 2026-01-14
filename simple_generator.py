@@ -168,6 +168,125 @@ def get_workflow(mode='lightning', resolution=512, aspect='square', seed=None, n
 
     return workflow, seed
 
+
+def get_zimage_workflow(resolution=1024, aspect='square', seed=None, negative_prompt=''):
+    """Generate workflow for Z-Image Turbo (6B parameter model, fast photorealistic generation)"""
+
+    # Calculate dimensions based on aspect ratio (must be divisible by 32)
+    if aspect == 'landscape':
+        width = resolution
+        height = int(resolution * 0.66)
+        # Round to nearest 32
+        height = (height // 32) * 32
+    elif aspect == 'portrait':
+        width = int(resolution * 0.66)
+        height = resolution
+        # Round to nearest 32
+        width = (width // 32) * 32
+    else:  # square
+        width = resolution
+        height = resolution
+
+    # Use provided seed or generate random one
+    if seed is None:
+        seed = int(time.time() * 1000) % 999999999
+
+    # Z-Image Turbo settings: 8 steps, CFG 1.0 (turbo doesn't need guidance)
+    steps = 8
+    cfg = 1.0
+
+    workflow = {
+        # Text Encoder - Qwen 3 4B (type: lumina2)
+        "1": {
+            "class_type": "CLIPLoader",
+            "inputs": {
+                "clip_name": "qwen_3_4b.safetensors",
+                "type": "lumina2"
+            }
+        },
+        # Positive prompt encoding
+        "2": {
+            "class_type": "CLIPTextEncode",
+            "inputs": {
+                "text": "PROMPT_PLACEHOLDER",
+                "clip": ["1", 0]
+            }
+        },
+        # Negative prompt encoding (Z-Image uses ConditioningZeroOut for negative)
+        "3": {
+            "class_type": "ConditioningZeroOut",
+            "inputs": {
+                "conditioning": ["2", 0]
+            }
+        },
+        # Load Z-Image Turbo UNet (GGUF quantized)
+        "4": {
+            "class_type": "UnetLoaderGGUF",
+            "inputs": {
+                "unet_name": "z_image_turbo-Q8_0.gguf"
+            }
+        },
+        # ModelSamplingAuraFlow for Z-Image
+        "5": {
+            "class_type": "ModelSamplingAuraFlow",
+            "inputs": {
+                "shift": 1.73,
+                "model": ["4", 0]
+            }
+        },
+        # Load Flux VAE (ae.safetensors)
+        "6": {
+            "class_type": "VAELoader",
+            "inputs": {
+                "vae_name": "ae.safetensors"
+            }
+        },
+        # Empty SD3 latent (Z-Image uses SD3 latent format)
+        "7": {
+            "class_type": "EmptySD3LatentImage",
+            "inputs": {
+                "width": width,
+                "height": height,
+                "batch_size": 1
+            }
+        },
+        # KSampler
+        "8": {
+            "class_type": "KSampler",
+            "inputs": {
+                "seed": seed,
+                "steps": steps,
+                "cfg": cfg,
+                "sampler_name": "euler",
+                "scheduler": "sgm_uniform",
+                "denoise": 1.0,
+                "model": ["5", 0],
+                "positive": ["2", 0],
+                "negative": ["3", 0],
+                "latent_image": ["7", 0]
+            }
+        },
+        # VAE Decode
+        "9": {
+            "class_type": "VAEDecode",
+            "inputs": {
+                "samples": ["8", 0],
+                "vae": ["6", 0]
+            }
+        },
+        # Save Image
+        "10": {
+            "class_type": "SaveImage",
+            "inputs": {
+                "filename_prefix": "zimage_turbo",
+                "images": ["9", 0]
+            }
+        }
+    }
+
+    return workflow, seed
+
+
 HTML_PAGE = '''<!DOCTYPE html>
 <html>
 <head>
@@ -1785,6 +1904,7 @@ HTML_PAGE = '''<!DOCTYPE html>
     <div class="tabs">
         <button class="tab active" onclick="showTab('generate')">✨ Generate</button>
         <button class="tab" onclick="showTab('edit')">🖌️ Edit</button>
+        <button class="tab" onclick="showTab('video')">🎬 Video</button>
         <button class="tab" onclick="showTab('gallery')">🖼️ Gallery</button>
         <button class="tab" onclick="showTab('settings')">⚙️ Settings</button>
     </div>
@@ -1792,13 +1912,28 @@ HTML_PAGE = '''<!DOCTYPE html>
     <!-- Generate Tab -->
     <div id="tab-generate" class="tab-content active">
         <div class="input-section">
-            <!-- Quick Presets -->
-            <label>Quick Presets</label>
-            <div class="presets">
-                <span class="preset-btn active" onclick="applyPreset('quick')" data-preset="quick">🚀 Fast</span>
-                <span class="preset-btn" onclick="applyPreset('quality')" data-preset="quality">✨ Quality</span>
-                <span class="preset-btn" onclick="applyPreset('portrait')" data-preset="portrait">👤 Portrait</span>
-                <span class="preset-btn" onclick="applyPreset('landscape')" data-preset="landscape">🏞️ Landscape</span>
+            <!-- Model Selection -->
+            <label>Model</label>
+            <div style="display: flex; gap: 8px; margin-bottom: var(--space-4);">
+                <button type="button" id="imageModelQwen" class="model-btn active" onclick="selectImageModel('qwen')" style="flex: 1; padding: 10px 12px; background: rgba(102, 126, 234, 0.4); border: 2px solid #667eea; border-radius: var(--radius-md); color: #fff; cursor: pointer; font-size: 12px; text-align: center;">
+                    <div style="font-weight: 600;">Qwen</div>
+                    <div style="font-size: 10px; opacity: 0.8;">Lightning/Quality</div>
+                </button>
+                <button type="button" id="imageModelZImage" class="model-btn" onclick="selectImageModel('zimage')" style="flex: 1; padding: 10px 12px; background: rgba(255,255,255,0.1); border: 2px solid transparent; border-radius: var(--radius-md); color: #fff; cursor: pointer; font-size: 12px; text-align: center;">
+                    <div style="font-weight: 600;">Z-Image Turbo</div>
+                    <div style="font-size: 10px; opacity: 0.8;">Fast Photorealistic</div>
+                </button>
+            </div>
+
+            <!-- Quick Presets (Qwen only) -->
+            <div id="qwenPresets">
+                <label>Quick Presets</label>
+                <div class="presets">
+                    <span class="preset-btn active" onclick="applyPreset('quick')" data-preset="quick">🚀 Fast</span>
+                    <span class="preset-btn" onclick="applyPreset('quality')" data-preset="quality">✨ Quality</span>
+                    <span class="preset-btn" onclick="applyPreset('portrait')" data-preset="portrait">👤 Portrait</span>
+                    <span class="preset-btn" onclick="applyPreset('landscape')" data-preset="landscape">🏞️ Landscape</span>
+                </div>
             </div>
 
             <label for="prompt">Describe your image</label>
@@ -1864,7 +1999,7 @@ HTML_PAGE = '''<!DOCTYPE html>
             </div>
 
             <div class="options-row">
-                <div class="option-group">
+                <div class="option-group" id="modeSelector">
                     <label>Mode</label>
                     <select id="mode" onchange="updateEstimate(); clearPresetHighlight();">
                         <option value="lightning">⚡ Lightning (Fast)</option>
@@ -1877,6 +2012,7 @@ HTML_PAGE = '''<!DOCTYPE html>
                         <option value="512">512px</option>
                         <option value="768">768px</option>
                         <option value="1024">1024px</option>
+                        <option value="1536">1536px</option>
                     </select>
                 </div>
                 <div class="option-group">
@@ -2027,6 +2163,156 @@ HTML_PAGE = '''<!DOCTYPE html>
             <button onclick="editImage()" id="editBtn">🖌️ Apply Edit</button>
         </div>
         <div id="editResult"></div>
+    </div>
+
+    <!-- Video Tab -->
+    <div id="tab-video" class="tab-content">
+        <div class="input-section">
+            <!-- Video Mode Selection -->
+            <label>Video Generation Mode</label>
+            <div style="display: flex; gap: 8px; margin-bottom: var(--space-4);">
+                <button type="button" id="videoModeT2V" class="mode-btn active" onclick="selectVideoMode('t2v')" style="flex: 1; padding: 12px 16px; background: rgba(102, 126, 234, 0.4); border: 2px solid #667eea; border-radius: var(--radius-md); color: #fff; cursor: pointer; font-size: 13px;">
+                    <strong>📝 Text to Video</strong><br>
+                    <span style="font-size: 11px; opacity: 0.7;">Generate from description</span>
+                </button>
+                <button type="button" id="videoModeI2V" class="mode-btn" onclick="selectVideoMode('i2v')" style="flex: 1; padding: 12px 16px; background: rgba(255,255,255,0.1); border: 2px solid transparent; border-radius: var(--radius-md); color: #fff; cursor: pointer; font-size: 13px;">
+                    <strong>🖼️ Image to Video</strong><br>
+                    <span style="font-size: 11px; opacity: 0.7;">Animate an image</span>
+                </button>
+            </div>
+
+            <!-- Video Model Selection -->
+            <label>Model</label>
+            <div style="display: flex; gap: 8px; margin-bottom: var(--space-4);">
+                <button type="button" id="videoModelLTX" class="model-btn active" onclick="selectVideoModel('ltx')" style="flex: 1; padding: 10px 12px; background: rgba(102, 126, 234, 0.4); border: 2px solid #667eea; border-radius: var(--radius-md); color: #fff; cursor: pointer; font-size: 12px; text-align: center;">
+                    <strong>LTX 2B</strong><br>
+                    <span style="font-size: 10px; opacity: 0.7;">Fast (~30s)</span>
+                </button>
+                <button type="button" id="videoModelHunyuan" class="model-btn" onclick="selectVideoModel('hunyuan')" style="flex: 1; padding: 10px 12px; background: rgba(255,255,255,0.1); border: 2px solid transparent; border-radius: var(--radius-md); color: #fff; cursor: pointer; font-size: 12px; text-align: center;">
+                    <strong>Hunyuan 13B</strong><br>
+                    <span style="font-size: 10px; opacity: 0.7;">Quality (~3min)</span>
+                </button>
+                <button type="button" id="videoModelWan" class="model-btn" onclick="selectVideoModel('wan')" style="flex: 1; padding: 10px 12px; background: rgba(255,255,255,0.1); border: 2px solid transparent; border-radius: var(--radius-md); color: #fff; cursor: pointer; font-size: 12px; text-align: center;">
+                    <strong>Wan 14B</strong><br>
+                    <span style="font-size: 10px; opacity: 0.7;">Best (~5min)</span>
+                </button>
+            </div>
+
+            <!-- Image upload for I2V (hidden by default) -->
+            <div id="videoImageUploadSection" style="display: none; margin-bottom: var(--space-4);">
+                <label>Start Image</label>
+                <div style="display: flex; gap: var(--space-2); margin-bottom: var(--space-2);">
+                    <button type="button" class="btn-secondary" style="flex: 1;" onclick="document.getElementById('videoImageUpload').click()">📁 Upload File</button>
+                    <button type="button" class="btn-secondary" style="flex: 1;" onclick="openVideoGalleryPicker()">🖼️ From Gallery</button>
+                </div>
+                <div class="upload-area" id="videoUploadArea" onclick="document.getElementById('videoImageUpload').click()" style="height: 120px;">
+                    <div id="videoUploadPlaceholder">📁 Click or drag image here</div>
+                    <img id="videoUploadPreview" class="upload-preview" style="display:none; max-height: 100px;">
+                    <input type="file" id="videoImageUpload" accept="image/*" style="display:none;" onchange="handleVideoUpload(event)">
+                </div>
+            </div>
+
+            <label for="videoPrompt">Describe your video</label>
+            <div style="position: relative;">
+                <textarea id="videoPrompt" placeholder="A majestic eagle soaring through clouds at golden hour, cinematic drone shot..."></textarea>
+                <div style="position: absolute; right: 4px; top: 4px; display: flex; flex-direction: row; gap: 4px;">
+                    <button type="button" onclick="refineVideoPrompt('refine')" title="Refine" class="ai-float-btn">✨</button>
+                    <button type="button" onclick="refineVideoPrompt('expand')" title="Expand" class="ai-float-btn">📝</button>
+                </div>
+            </div>
+
+            <!-- Video Settings -->
+            <div class="options-row" style="margin-top: var(--space-3);">
+                <div class="option-group">
+                    <label>Resolution</label>
+                    <select id="videoResolution" onchange="updateVideoEstimate()">
+                        <option value="480p" selected>480p (832×480)</option>
+                        <option value="576p">576p (1024×576)</option>
+                        <option value="720p">720p (1280×720)</option>
+                    </select>
+                </div>
+                <div class="option-group">
+                    <label>Duration</label>
+                    <select id="videoDuration" onchange="updateVideoEstimate()">
+                        <option value="41">~2.5 sec (41 frames)</option>
+                        <option value="81" selected>~5 sec (81 frames)</option>
+                        <option value="121">~7.5 sec (121 frames)</option>
+                    </select>
+                </div>
+                <div class="option-group">
+                    <label>Seed</label>
+                    <input type="number" id="videoSeed" placeholder="Random" style="width: 100%;">
+                </div>
+            </div>
+
+            <!-- Advanced Video Options -->
+            <div class="advanced-toggle" onclick="toggleVideoAdvanced()">▶ Advanced Options</div>
+            <div class="advanced-section" id="videoAdvancedSection" style="display: none;">
+                <div class="option-group" style="margin-bottom: var(--space-3);">
+                    <label for="videoNegativePrompt">Negative Prompt</label>
+                    <span class="option-hint">What to avoid in the video</span>
+                    <textarea id="videoNegativePrompt" placeholder="blurry, low quality, distorted, watermark, static, jittery" style="height: 60px;"></textarea>
+                </div>
+            </div>
+
+            <div class="time-estimate" id="videoTimeEstimate">⏱️ Estimated: ~4-5 minutes (480p, 5 sec)</div>
+
+            <div class="btn-row">
+                <button id="videoGenerateBtn" onclick="generateVideo()">🎬 Generate Video</button>
+                <button id="videoCancelBtn" class="btn-cancel" onclick="cancelVideoGeneration()" style="display:none;">Cancel</button>
+            </div>
+
+            <!-- Video Progress -->
+            <div id="videoStatus" style="display: none;">
+                <div id="videoStatusText"></div>
+                <div class="progress-container" id="videoProgressContainer">
+                    <div class="progress-bar"><div class="progress-fill" id="videoProgressFill"></div></div>
+                    <div class="progress-text">
+                        <span id="videoStepText">Step 0/30</span>
+                        <span id="videoPercentText">0%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Video Result -->
+        <div id="videoResult"></div>
+
+        <!-- Video Prompt Ideas -->
+        <div class="examples">
+            <h3 style="margin-bottom: 8px;">💡 Video Prompt Ideas</h3>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                <span class="example-btn" onclick="setVideoPrompt('A majestic eagle soaring through clouds at golden hour, cinematic aerial shot')">🦅 Eagle Flight</span>
+                <span class="example-btn" onclick="setVideoPrompt('Ocean waves crashing on rocky shore at sunset, slow motion, dramatic lighting')">🌊 Ocean Waves</span>
+                <span class="example-btn" onclick="setVideoPrompt('City street at night with rain reflections and neon signs, cyberpunk atmosphere')">🌃 Rainy City</span>
+                <span class="example-btn" onclick="setVideoPrompt('Timelapse of flowers blooming in a garden, soft natural lighting')">🌸 Flowers Blooming</span>
+                <span class="example-btn" onclick="setVideoPrompt('Astronaut floating in space with Earth in background, cinematic')">🚀 Space Walk</span>
+                <span class="example-btn" onclick="setVideoPrompt('Campfire burning in forest at night, sparks flying, cozy atmosphere')">🔥 Campfire</span>
+            </div>
+        </div>
+
+        <!-- Model Status -->
+        <div id="videoModelStatus" class="input-section" style="margin-top: var(--space-4); padding: var(--space-4); background: rgba(76, 175, 80, 0.1); border: 1px solid rgba(76, 175, 80, 0.3);">
+            <h4 style="margin-bottom: 8px;">✅ Video Models Ready</h4>
+            <p style="font-size: var(--text-sm); color: var(--text-secondary); margin-bottom: 12px;">
+                Three video generation models (Q4 GGUF quantized for M-series Macs):
+            </p>
+            <div style="font-size: var(--text-xs); color: var(--text-tertiary);">
+                <div style="margin-bottom: 8px;">
+                    <strong style="color: var(--text-secondary);">⚡ LTX 2B</strong> - Fastest (~30s)
+                    <div style="margin-left: 16px; margin-top: 2px;">• <code>ltxv-2b-distilled-Q4_K_M.gguf</code> (1.2GB)</div>
+                </div>
+                <div style="margin-bottom: 8px;">
+                    <strong style="color: var(--text-secondary);">🎬 Hunyuan 13B</strong> - Quality (~3min)
+                    <div style="margin-left: 16px; margin-top: 2px;">• <code>hunyuan-video-t2v-Q4_K_M.gguf</code> (7.3GB)</div>
+                </div>
+                <div style="margin-bottom: 8px;">
+                    <strong style="color: var(--text-secondary);">🏆 Wan 14B</strong> - Best quality (~5min)
+                    <div style="margin-left: 16px; margin-top: 2px;">• <code>wan2.1-t2v-14b-Q4_K_M.gguf</code> (9.4GB)</div>
+                    <div style="margin-left: 16px;">• <code>wan2.1-i2v-14b-Q4_K_M.gguf</code> (11GB) - I2V</div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Gallery Tab -->
@@ -2431,6 +2717,7 @@ HTML_PAGE = '''<!DOCTYPE html>
                 seed,
                 sampler,
                 scheduler,
+                model: currentImageModel,
                 status: 'pending'
             });
 
@@ -2519,7 +2806,8 @@ HTML_PAGE = '''<!DOCTYPE html>
                             negativePrompt: item.negativePrompt,
                             seed: item.seed,
                             sampler: item.sampler,
-                            scheduler: item.scheduler
+                            scheduler: item.scheduler,
+                            model: item.model || 'qwen'
                         })
                     });
                     const queueData = await queueResponse.json();
@@ -2773,8 +3061,17 @@ HTML_PAGE = '''<!DOCTYPE html>
             const mode = document.getElementById('mode').value;
             const resolution = parseInt(document.getElementById('resolution').value);
             const batch = parseInt(document.getElementById('batchSize').value) || 1;
-            const times = { lightning: { 512: 1, 768: 2, 1024: 3 }, normal: { 512: 7, 768: 12, 1024: 16 } };
-            const totalTime = times[mode][resolution] * batch;
+
+            let totalTime;
+            if (currentImageModel === 'zimage') {
+                // Z-Image Turbo: 8 steps, very fast (~30-60 seconds based on resolution)
+                const zimageTime = { 512: 0.5, 768: 0.75, 1024: 1, 1536: 2 };
+                totalTime = (zimageTime[resolution] || 1) * batch;
+            } else {
+                // Qwen times
+                const times = { lightning: { 512: 1, 768: 2, 1024: 3, 1536: 5 }, normal: { 512: 7, 768: 12, 1024: 16, 1536: 25 } };
+                totalTime = (times[mode][resolution] || times[mode][1024]) * batch;
+            }
             document.getElementById('timeEstimate').textContent = '⏱️ Estimated: ~' + totalTime + ' min' + (batch > 1 ? ' (for ' + batch + ' images)' : '');
         }
 
@@ -2955,7 +3252,7 @@ HTML_PAGE = '''<!DOCTYPE html>
                     const queueResponse = await fetch('/queue', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({prompt, mode, resolution, aspect, negativePrompt, seed, sampler, scheduler})
+                        body: JSON.stringify({prompt, mode, resolution, aspect, negativePrompt, seed, sampler, scheduler, model: currentImageModel})
                     });
                     const queueData = await queueResponse.json();
                     if (!queueData.prompt_id) throw new Error(queueData.error || 'Failed to queue');
@@ -3103,7 +3400,7 @@ HTML_PAGE = '''<!DOCTYPE html>
                 const queueResponse = await fetch('/queue', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({prompt, mode, resolution, aspect, negativePrompt})
+                    body: JSON.stringify({prompt, mode, resolution, aspect, negativePrompt, model: currentImageModel})
                 });
                 const queueData = await queueResponse.json();
                 if (!queueData.prompt_id) throw new Error(queueData.error || 'Failed to queue');
@@ -3215,6 +3512,328 @@ HTML_PAGE = '''<!DOCTYPE html>
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({filename, favorites})
             });
+        }
+
+        // ==========================================
+        // IMAGE MODEL SELECTION
+        // ==========================================
+        let currentImageModel = 'qwen';  // qwen, zimage
+
+        function selectImageModel(model) {
+            currentImageModel = model;
+
+            // Update button states
+            ['Qwen', 'ZImage'].forEach(m => {
+                const btn = document.getElementById('imageModel' + m);
+                const isActive = model === m.toLowerCase();
+                btn.style.background = isActive ? 'rgba(102, 126, 234, 0.4)' : 'rgba(255,255,255,0.1)';
+                btn.style.borderColor = isActive ? '#667eea' : 'transparent';
+            });
+
+            // Show/hide Qwen-specific options
+            const qwenPresets = document.getElementById('qwenPresets');
+            const modeSelector = document.getElementById('modeSelector');
+
+            if (model === 'zimage') {
+                // Z-Image Turbo: hide presets and mode (it's always fast)
+                qwenPresets.style.display = 'none';
+                modeSelector.style.display = 'none';
+                // Set resolution default to 1024 for Z-Image
+                document.getElementById('resolution').value = '1024';
+            } else {
+                // Qwen: show presets and mode
+                qwenPresets.style.display = 'block';
+                modeSelector.style.display = 'block';
+            }
+
+            updateEstimate();
+        }
+
+        // ==========================================
+        // VIDEO GENERATION FUNCTIONS
+        // ==========================================
+        let currentVideoMode = 't2v';
+        let currentVideoModel = 'ltx';  // ltx, hunyuan, wan
+        let videoUploadedImageData = null;
+        let currentVideoPromptId = null;
+
+        function selectVideoMode(mode) {
+            currentVideoMode = mode;
+
+            // Update button states
+            document.getElementById('videoModeT2V').style.background = mode === 't2v' ? 'rgba(102, 126, 234, 0.4)' : 'rgba(255,255,255,0.1)';
+            document.getElementById('videoModeT2V').style.borderColor = mode === 't2v' ? '#667eea' : 'transparent';
+            document.getElementById('videoModeI2V').style.background = mode === 'i2v' ? 'rgba(102, 126, 234, 0.4)' : 'rgba(255,255,255,0.1)';
+            document.getElementById('videoModeI2V').style.borderColor = mode === 'i2v' ? '#667eea' : 'transparent';
+
+            // Show/hide image upload for I2V mode
+            document.getElementById('videoImageUploadSection').style.display = mode === 'i2v' ? 'block' : 'none';
+
+            updateVideoEstimate();
+        }
+
+        function selectVideoModel(model) {
+            currentVideoModel = model;
+
+            // Update button states
+            ['LTX', 'Hunyuan', 'Wan'].forEach(m => {
+                const btn = document.getElementById('videoModel' + m);
+                const isActive = model === m.toLowerCase();
+                btn.style.background = isActive ? 'rgba(102, 126, 234, 0.4)' : 'rgba(255,255,255,0.1)';
+                btn.style.borderColor = isActive ? '#667eea' : 'transparent';
+            });
+
+            // LTX doesn't support I2V mode currently
+            if (model === 'ltx' && currentVideoMode === 'i2v') {
+                selectVideoMode('t2v');
+                showToast('Note', 'LTX model only supports Text-to-Video', 'info');
+            }
+
+            // Show/hide I2V option based on model support
+            const i2vBtn = document.getElementById('videoModeI2V');
+            if (model === 'ltx') {
+                i2vBtn.style.opacity = '0.4';
+                i2vBtn.style.pointerEvents = 'none';
+            } else {
+                i2vBtn.style.opacity = '1';
+                i2vBtn.style.pointerEvents = 'auto';
+            }
+
+            updateVideoEstimate();
+        }
+
+        function handleVideoUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                videoUploadedImageData = e.target.result;
+                document.getElementById('videoUploadPreview').src = videoUploadedImageData;
+                document.getElementById('videoUploadPreview').style.display = 'block';
+                document.getElementById('videoUploadPlaceholder').style.display = 'none';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function openVideoGalleryPicker() {
+            // Reuse the gallery picker from edit mode
+            showToast('Gallery Picker', 'Opening gallery...', 'info');
+            // For now, just switch to gallery tab
+            showTab('gallery');
+        }
+
+        function setVideoPrompt(prompt) {
+            document.getElementById('videoPrompt').value = prompt;
+        }
+
+        function toggleVideoAdvanced() {
+            const section = document.getElementById('videoAdvancedSection');
+            const toggle = section.previousElementSibling;
+            const isVisible = section.style.display !== 'none';
+            section.style.display = isVisible ? 'none' : 'block';
+            toggle.textContent = isVisible ? '▶ Advanced Options' : '▼ Advanced Options';
+        }
+
+        function updateVideoEstimate() {
+            const resolution = document.getElementById('videoResolution').value;
+            const duration = parseInt(document.getElementById('videoDuration').value);
+            const mode = currentVideoMode;
+            const model = currentVideoModel;
+
+            // Base times per model (480p, 81 frames)
+            let baseTime;
+            let modelName;
+            switch (model) {
+                case 'ltx':
+                    baseTime = 0.5;  // ~30 seconds
+                    modelName = 'LTX 2B';
+                    break;
+                case 'hunyuan':
+                    baseTime = 3;    // ~3 minutes
+                    modelName = 'Hunyuan 13B';
+                    break;
+                case 'wan':
+                default:
+                    baseTime = 5;    // ~5 minutes
+                    modelName = 'Wan 14B';
+                    break;
+            }
+
+            // Adjust for resolution
+            if (resolution === '576p') baseTime *= 1.5;
+            if (resolution === '720p') baseTime *= 2.5;
+
+            // Adjust for duration
+            if (duration === 41) baseTime *= 0.6;
+            if (duration === 121) baseTime *= 1.5;
+
+            // I2V is slightly faster (not applicable to LTX)
+            if (mode === 'i2v' && model !== 'ltx') baseTime *= 0.9;
+
+            const minTime = Math.floor(baseTime);
+            const maxTime = Math.ceil(baseTime * 1.3);
+
+            const durationSec = Math.round(duration / 16); // 16 fps
+            const timeStr = minTime < 1 ? '~30 seconds' : `~${minTime}-${maxTime} min`;
+            document.getElementById('videoTimeEstimate').textContent =
+                `⏱️ ${modelName}: ${timeStr} (${resolution}, ${durationSec} sec)`;
+        }
+
+        async function refineVideoPrompt(mode) {
+            const prompt = document.getElementById('videoPrompt').value.trim();
+            if (!prompt) {
+                showToast('Enter Prompt', 'Please enter a prompt to refine', 'warning');
+                return;
+            }
+            // Reuse the local refine function with video context
+            const systemPrompt = mode === 'expand'
+                ? 'Expand this video prompt with cinematic details, camera movements, and motion descriptions. Keep it under 100 words.'
+                : 'Refine this video prompt for better generation. Add motion, camera details, and visual quality terms.';
+
+            try {
+                const response = await fetch('/refine', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt, mode, context: 'video' })
+                });
+                const result = await response.json();
+                if (result.refined) {
+                    document.getElementById('videoPrompt').value = result.refined;
+                    showToast('Refined!', 'Video prompt enhanced', 'success');
+                }
+            } catch (e) {
+                showToast('Error', 'Could not refine prompt', 'error');
+            }
+        }
+
+        async function generateVideo() {
+            const prompt = document.getElementById('videoPrompt').value.trim();
+            if (!prompt) {
+                showToast('Missing Prompt', 'Please describe your video', 'warning');
+                return;
+            }
+
+            if (currentVideoMode === 'i2v' && !videoUploadedImageData) {
+                showToast('Missing Image', 'Please upload a start image for Image-to-Video mode', 'warning');
+                return;
+            }
+
+            const resolution = document.getElementById('videoResolution').value;
+            const length = parseInt(document.getElementById('videoDuration').value);
+            const seedInput = document.getElementById('videoSeed').value;
+            const seed = seedInput ? parseInt(seedInput) : null;
+            const negativePrompt = document.getElementById('videoNegativePrompt').value.trim();
+
+            const btn = document.getElementById('videoGenerateBtn');
+            const cancelBtn = document.getElementById('videoCancelBtn');
+            const status = document.getElementById('videoStatus');
+            const statusText = document.getElementById('videoStatusText');
+            const result = document.getElementById('videoResult');
+
+            btn.disabled = true;
+            cancelBtn.style.display = 'inline-flex';
+            status.style.display = 'block';
+            statusText.textContent = '🎬 Queuing video generation...';
+            result.innerHTML = '';
+
+            try {
+                const queueResponse = await fetch('/video-queue', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        prompt,
+                        model: currentVideoModel,
+                        mode: currentVideoMode,
+                        resolution,
+                        length,
+                        seed,
+                        negative_prompt: negativePrompt,
+                        start_image: currentVideoMode === 'i2v' ? videoUploadedImageData : null
+                    })
+                });
+
+                const queueData = await queueResponse.json();
+                if (queueData.error) {
+                    throw new Error(queueData.error);
+                }
+
+                currentVideoPromptId = queueData.prompt_id;
+                statusText.textContent = '🎬 Generating video... This may take several minutes.';
+
+                // Poll for progress
+                pollVideoProgress(queueData.prompt_id);
+
+                // Wait for completion
+                const response = await fetch('/video-wait?prompt_id=' + queueData.prompt_id);
+                const data = await response.json();
+
+                if (data.success) {
+                    statusText.textContent = '✅ Video generated!';
+                    result.innerHTML = `
+                        <div style="background: var(--glass-bg); border-radius: var(--radius-lg); padding: var(--space-4); margin-top: var(--space-4);">
+                            <video controls autoplay loop style="width: 100%; border-radius: var(--radius-md);">
+                                <source src="${data.video}" type="video/webm">
+                                Your browser does not support video playback.
+                            </video>
+                            <div style="margin-top: var(--space-3); display: flex; gap: var(--space-2);">
+                                <a href="${data.video}" download class="btn-secondary" style="flex: 1; text-align: center; text-decoration: none;">📥 Download</a>
+                                <button class="btn-secondary" style="flex: 1;" onclick="setVideoPrompt(document.getElementById('videoPrompt').value); showToast('Ready', 'Generate another!', 'info');">🔄 Regenerate</button>
+                            </div>
+                        </div>
+                    `;
+                    showToast('Video Ready!', 'Your video has been generated', 'success');
+                } else {
+                    throw new Error(data.error || 'Video generation failed');
+                }
+            } catch (e) {
+                statusText.textContent = '❌ ' + e.message;
+                showToast('Error', e.message, 'error');
+            } finally {
+                btn.disabled = false;
+                cancelBtn.style.display = 'none';
+                currentVideoPromptId = null;
+            }
+        }
+
+        async function pollVideoProgress(promptId) {
+            const progressFill = document.getElementById('videoProgressFill');
+            const stepText = document.getElementById('videoStepText');
+            const percentText = document.getElementById('videoPercentText');
+
+            while (currentVideoPromptId === promptId) {
+                try {
+                    const response = await fetch('/progress?prompt_id=' + promptId);
+                    const data = await response.json();
+
+                    if (data.progress !== undefined) {
+                        const percent = Math.round(data.progress * 100);
+                        progressFill.style.width = percent + '%';
+                        percentText.textContent = percent + '%';
+                        if (data.current && data.total) {
+                            stepText.textContent = `Step ${data.current}/${data.total}`;
+                        }
+                    }
+                } catch (e) {
+                    // Ignore polling errors
+                }
+                await new Promise(r => setTimeout(r, 1000));
+            }
+        }
+
+        async function cancelVideoGeneration() {
+            if (currentVideoPromptId) {
+                try {
+                    await fetch('/interrupt', { method: 'POST' });
+                    showToast('Cancelled', 'Video generation cancelled', 'info');
+                } catch (e) {
+                    // Ignore
+                }
+            }
+            currentVideoPromptId = null;
+            document.getElementById('videoGenerateBtn').disabled = false;
+            document.getElementById('videoCancelBtn').style.display = 'none';
+            document.getElementById('videoStatus').style.display = 'none';
         }
 
         // Gallery functions
@@ -3884,6 +4503,14 @@ class RequestHandler(SimpleHTTPRequestHandler):
             self.send_header('Content-type', 'application/json')
             self.end_headers()
             self.wfile.write(json.dumps(result).encode())
+        elif self.path.startswith('/video-wait'):
+            query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            prompt_id = query.get('prompt_id', [''])[0]
+            result = wait_for_video(prompt_id)
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(result).encode())
         elif self.path == '/gallery':
             images = get_gallery_images_with_meta()
             self.send_response(200)
@@ -3906,6 +4533,8 @@ class RequestHandler(SimpleHTTPRequestHandler):
         data = json.loads(post_data.decode()) if post_data else {}
 
         if self.path == '/queue':
+            model = data.get('model', 'qwen')
+            print(f"[DEBUG] /queue called with model={model}")
             result = queue_prompt(
                 data.get('prompt', ''),
                 data.get('mode', 'lightning'),
@@ -3914,7 +4543,8 @@ class RequestHandler(SimpleHTTPRequestHandler):
                 data.get('seed'),
                 data.get('negativePrompt', ''),
                 data.get('sampler', 'euler'),
-                data.get('scheduler', 'normal')
+                data.get('scheduler', 'normal'),
+                model
             )
             self.send_json(result)
         elif self.path == '/generate':
@@ -3935,6 +4565,18 @@ class RequestHandler(SimpleHTTPRequestHandler):
                 data.get('useAnglesLora', False),
                 data.get('anglePrompt', ''),
                 data.get('useUpscaleLora', False)
+            )
+            self.send_json(result)
+        elif self.path == '/video-queue':
+            result = queue_video(
+                data.get('prompt', ''),
+                data.get('model', 'ltx'),
+                data.get('mode', 't2v'),
+                data.get('resolution', '480p'),
+                data.get('length', 81),
+                data.get('seed'),
+                data.get('negative_prompt', ''),
+                data.get('start_image')
             )
             self.send_json(result)
         elif self.path == '/refine':
@@ -4169,13 +4811,19 @@ def unload_ollama_model():
         except Exception as e:
             print(f"Could not unload Ollama: {e}")
 
-def queue_prompt(prompt, mode='lightning', resolution=512, aspect='square', seed=None, negative_prompt='', sampler='euler', scheduler='normal'):
+def queue_prompt(prompt, mode='lightning', resolution=512, aspect='square', seed=None, negative_prompt='', sampler='euler', scheduler='normal', model='qwen'):
     # Free up VRAM by unloading Ollama model before image generation
     unload_ollama_model()
 
     try:
-        workflow, used_seed = get_workflow(mode, resolution, aspect, seed, negative_prompt, sampler, scheduler)
-        workflow["4"]["inputs"]["text"] = prompt
+        # Select workflow based on model
+        if model == 'zimage':
+            workflow, used_seed = get_zimage_workflow(resolution, aspect, seed, negative_prompt)
+            workflow["2"]["inputs"]["text"] = prompt  # Z-Image uses node 2 for prompt
+        else:
+            # Default to Qwen
+            workflow, used_seed = get_workflow(mode, resolution, aspect, seed, negative_prompt, sampler, scheduler)
+            workflow["4"]["inputs"]["text"] = prompt
 
         payload = {"prompt": workflow}
         req = urllib.request.Request(
@@ -4188,7 +4836,7 @@ def queue_prompt(prompt, mode='lightning', resolution=512, aspect='square', seed
         prompt_id = result.get('prompt_id')
 
         if prompt_id:
-            progress_state[prompt_id] = {'start_time': time.time(), 'mode': mode}
+            progress_state[prompt_id] = {'start_time': time.time(), 'mode': mode, 'model': model}
             return {"prompt_id": prompt_id, "seed": used_seed}
         return {"error": "Failed to queue prompt"}
     except Exception as e:
@@ -4429,6 +5077,590 @@ def get_edit_workflow(prompt, seed=None, use_angles_lora=False, angle_prompt="",
     }
 
     return workflow, seed
+
+def get_video_workflow(prompt, mode='t2v', resolution='480p', length=81, seed=None, negative_prompt='', start_image=None):
+    """Generate workflow for Wan 2.1 video generation (Text-to-Video or Image-to-Video)"""
+    if seed is None:
+        seed = int(time.time() * 1000) % 999999999
+
+    # Resolution presets for video
+    res_map = {
+        '480p': (832, 480),
+        '720p': (1280, 720),
+        '576p': (1024, 576),
+    }
+    width, height = res_map.get(resolution, (832, 480))
+
+    # Video generation uses more steps for quality
+    steps = 30
+    cfg = 6.0
+
+    workflow = {
+        # Text Encoder - UMT5-XXL for Wan
+        "1": {
+            "class_type": "CLIPLoader",
+            "inputs": {
+                "clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+                "type": "wan"
+            }
+        },
+        # Positive prompt encoding
+        "2": {
+            "class_type": "CLIPTextEncode",
+            "inputs": {
+                "text": prompt,
+                "clip": ["1", 0]
+            }
+        },
+        # Negative prompt encoding
+        "3": {
+            "class_type": "CLIPTextEncode",
+            "inputs": {
+                "text": negative_prompt if negative_prompt else "blurry, low quality, distorted, watermark",
+                "clip": ["1", 0]
+            }
+        },
+        # Load Wan 2.1 Video UNet (GGUF quantized for M-series Macs)
+        "4": {
+            "class_type": "UnetLoaderGGUF",
+            "inputs": {
+                "unet_name": "wan2.1-t2v-14b-Q4_K_M.gguf"
+            }
+        },
+        # Load Video VAE
+        "5": {
+            "class_type": "VAELoader",
+            "inputs": {
+                "vae_name": "wan_2.1_vae.safetensors"
+            }
+        },
+        # VAE Decode
+        "9": {
+            "class_type": "VAEDecode",
+            "inputs": {
+                "samples": ["8", 0],
+                "vae": ["5", 0]
+            }
+        },
+        # Save as WebM video
+        "10": {
+            "class_type": "SaveWEBM",
+            "inputs": {
+                "filename_prefix": "wan_video",
+                "codec": "vp9",
+                "fps": 16.0,
+                "crf": 28.0,
+                "images": ["9", 0]
+            }
+        }
+    }
+
+    if mode == 'i2v' and start_image:
+        # Image-to-Video mode: Use WanImageToVideo conditioning
+        workflow["4"]["inputs"]["unet_name"] = "wan2.1-i2v-14b-Q4_K_M.gguf"
+
+        # Load CLIP Vision for image conditioning
+        workflow["6"] = {
+            "class_type": "CLIPVisionLoader",
+            "inputs": {
+                "clip_name": "clip_vision_h.safetensors"
+            }
+        }
+        # Load and encode start image
+        workflow["7"] = {
+            "class_type": "LoadImage",
+            "inputs": {
+                "image": start_image
+            }
+        }
+        workflow["7a"] = {
+            "class_type": "CLIPVisionEncode",
+            "inputs": {
+                "clip_vision": ["6", 0],
+                "image": ["7", 0]
+            }
+        }
+        # WanImageToVideo conditioning
+        workflow["7b"] = {
+            "class_type": "WanImageToVideo",
+            "inputs": {
+                "positive": ["2", 0],
+                "negative": ["3", 0],
+                "vae": ["5", 0],
+                "width": width,
+                "height": height,
+                "length": length,
+                "batch_size": 1,
+                "clip_vision_output": ["7a", 0],
+                "start_image": ["7", 0]
+            }
+        }
+        # KSampler with I2V conditioning
+        workflow["8"] = {
+            "class_type": "KSampler",
+            "inputs": {
+                "seed": seed,
+                "steps": steps,
+                "cfg": cfg,
+                "sampler_name": "euler",
+                "scheduler": "normal",
+                "denoise": 1.0,
+                "model": ["4", 0],
+                "positive": ["7b", 0],
+                "negative": ["7b", 1],
+                "latent_image": ["7b", 2]
+            }
+        }
+    else:
+        # Text-to-Video mode: Use EmptyHunyuanLatentVideo style for Wan
+        workflow["7"] = {
+            "class_type": "WanImageToVideo",
+            "inputs": {
+                "positive": ["2", 0],
+                "negative": ["3", 0],
+                "vae": ["5", 0],
+                "width": width,
+                "height": height,
+                "length": length,
+                "batch_size": 1
+            }
+        }
+        # KSampler
+        workflow["8"] = {
+            "class_type": "KSampler",
+            "inputs": {
+                "seed": seed,
+                "steps": steps,
+                "cfg": cfg,
+                "sampler_name": "euler",
+                "scheduler": "normal",
+                "denoise": 1.0,
+                "model": ["4", 0],
+                "positive": ["7", 0],
+                "negative": ["7", 1],
+                "latent_image": ["7", 2]
+            }
+        }
+
+    return workflow, seed
+
+
+def get_ltx_workflow(prompt, resolution='480p', length=81, seed=None, negative_prompt=''):
+    """Generate workflow for LTX-Video 2B Distilled (Text-to-Video only, fast generation)"""
+    if seed is None:
+        seed = int(time.time() * 1000) % 999999999
+
+    # LTX resolution presets
+    res_map = {
+        '480p': (768, 512),
+        '576p': (960, 544),
+        '720p': (1280, 720),
+    }
+    width, height = res_map.get(resolution, (768, 512))
+
+    # LTX Distilled uses fewer steps
+    steps = 8
+    cfg = 3.0
+
+    workflow = {
+        # CLIP-L Text Encoder for LTX
+        "1": {
+            "class_type": "CLIPLoader",
+            "inputs": {
+                "clip_name": "t5xxl_fp8_e4m3fn.safetensors",
+                "type": "ltxv"
+            }
+        },
+        # Positive prompt encoding
+        "2": {
+            "class_type": "CLIPTextEncode",
+            "inputs": {
+                "text": prompt,
+                "clip": ["1", 0]
+            }
+        },
+        # Negative prompt encoding
+        "3": {
+            "class_type": "CLIPTextEncode",
+            "inputs": {
+                "text": negative_prompt if negative_prompt else "low quality, blurry, distorted",
+                "clip": ["1", 0]
+            }
+        },
+        # Load LTX-Video UNet (GGUF quantized)
+        "4": {
+            "class_type": "UnetLoaderGGUF",
+            "inputs": {
+                "unet_name": "ltxv-2b-distilled-Q4_K_M.gguf"
+            }
+        },
+        # Load LTX VAE
+        "5": {
+            "class_type": "VAELoader",
+            "inputs": {
+                "vae_name": "ltxv_vae.safetensors"
+            }
+        },
+        # Empty latent for video
+        "6": {
+            "class_type": "EmptyLTXVLatentVideo",
+            "inputs": {
+                "width": width,
+                "height": height,
+                "length": length,
+                "batch_size": 1
+            }
+        },
+        # LTXV Scheduler
+        "7": {
+            "class_type": "LTXVScheduler",
+            "inputs": {
+                "steps": steps,
+                "max_shift": 2.05,
+                "base_shift": 0.95,
+                "stretch": True,
+                "terminal": 0.1
+            }
+        },
+        # KSampler
+        "8": {
+            "class_type": "SamplerCustom",
+            "inputs": {
+                "add_noise": True,
+                "noise_seed": seed,
+                "cfg": cfg,
+                "model": ["4", 0],
+                "positive": ["2", 0],
+                "negative": ["3", 0],
+                "sampler": ["9", 0],
+                "sigmas": ["7", 0],
+                "latent_image": ["6", 0]
+            }
+        },
+        # Sampler
+        "9": {
+            "class_type": "KSamplerSelect",
+            "inputs": {
+                "sampler_name": "euler"
+            }
+        },
+        # VAE Decode
+        "10": {
+            "class_type": "VAEDecode",
+            "inputs": {
+                "samples": ["8", 0],
+                "vae": ["5", 0]
+            }
+        },
+        # Save as WebM video
+        "11": {
+            "class_type": "SaveWEBM",
+            "inputs": {
+                "filename_prefix": "ltx_video",
+                "codec": "vp9",
+                "fps": 24.0,
+                "crf": 28.0,
+                "images": ["10", 0]
+            }
+        }
+    }
+
+    return workflow, seed
+
+
+def get_hunyuan_workflow(prompt, mode='t2v', resolution='480p', length=81, seed=None, negative_prompt='', start_image=None):
+    """Generate workflow for Hunyuan Video 13B using flow-matching sampler"""
+    if seed is None:
+        seed = int(time.time() * 1000) % 999999999
+
+    # Hunyuan resolution presets
+    res_map = {
+        '480p': (848, 480),
+        '576p': (960, 544),
+        '720p': (1280, 720),
+    }
+    width, height = res_map.get(resolution, (848, 480))
+
+    steps = 30
+    guidance = 6.0
+
+    workflow = {
+        # DualCLIPLoader for Hunyuan
+        "1": {
+            "class_type": "DualCLIPLoader",
+            "inputs": {
+                "clip_name1": "llava_llama3_fp8_scaled.safetensors",
+                "clip_name2": "clip_l.safetensors",
+                "type": "hunyuan_video"
+            }
+        },
+        # Positive prompt encoding
+        "2": {
+            "class_type": "CLIPTextEncode",
+            "inputs": {
+                "text": prompt,
+                "clip": ["1", 0]
+            }
+        },
+        # Load Hunyuan Video UNet (GGUF quantized)
+        "3": {
+            "class_type": "UnetLoaderGGUF",
+            "inputs": {
+                "unet_name": "hunyuan-video-t2v-Q4_K_M.gguf"
+            }
+        },
+        # Load Hunyuan VAE
+        "4": {
+            "class_type": "VAELoader",
+            "inputs": {
+                "vae_name": "hunyuan_video_vae_bf16.safetensors"
+            }
+        },
+        # Empty latent for video
+        "5": {
+            "class_type": "EmptyHunyuanLatentVideo",
+            "inputs": {
+                "width": width,
+                "height": height,
+                "length": length,
+                "batch_size": 1
+            }
+        },
+        # FluxGuidance for conditioning
+        "6": {
+            "class_type": "FluxGuidance",
+            "inputs": {
+                "guidance": guidance,
+                "conditioning": ["2", 0]
+            }
+        },
+        # ModelSamplingSD3 for flow matching
+        "7": {
+            "class_type": "ModelSamplingSD3",
+            "inputs": {
+                "shift": 7.0,
+                "model": ["3", 0]
+            }
+        },
+        # BasicScheduler
+        "8": {
+            "class_type": "BasicScheduler",
+            "inputs": {
+                "scheduler": "normal",
+                "steps": steps,
+                "denoise": 1.0,
+                "model": ["7", 0]
+            }
+        },
+        # KSamplerSelect
+        "9": {
+            "class_type": "KSamplerSelect",
+            "inputs": {
+                "sampler_name": "euler"
+            }
+        },
+        # RandomNoise
+        "10": {
+            "class_type": "RandomNoise",
+            "inputs": {
+                "noise_seed": seed
+            }
+        },
+        # BasicGuider
+        "11": {
+            "class_type": "BasicGuider",
+            "inputs": {
+                "model": ["7", 0],
+                "conditioning": ["6", 0]
+            }
+        },
+        # SamplerCustomAdvanced
+        "12": {
+            "class_type": "SamplerCustomAdvanced",
+            "inputs": {
+                "noise": ["10", 0],
+                "guider": ["11", 0],
+                "sampler": ["9", 0],
+                "sigmas": ["8", 0],
+                "latent_image": ["5", 0]
+            }
+        },
+        # VAE Decode
+        "13": {
+            "class_type": "VAEDecode",
+            "inputs": {
+                "samples": ["12", 0],
+                "vae": ["4", 0]
+            }
+        },
+        # Save as WebM video
+        "14": {
+            "class_type": "SaveWEBM",
+            "inputs": {
+                "filename_prefix": "hunyuan_video",
+                "codec": "vp9",
+                "fps": 24.0,
+                "crf": 28.0,
+                "images": ["13", 0]
+            }
+        }
+    }
+
+    # Image-to-Video mode - use HunyuanImageToVideo
+    if mode == 'i2v' and start_image:
+        workflow["15"] = {
+            "class_type": "LoadImage",
+            "inputs": {
+                "image": start_image
+            }
+        }
+        workflow["16"] = {
+            "class_type": "HunyuanImageToVideo",
+            "inputs": {
+                "width": width,
+                "height": height,
+                "length": length,
+                "batch_size": 1,
+                "vae": ["4", 0],
+                "start_image": ["15", 0]
+            }
+        }
+        # Update sampler to use I2V latent
+        workflow["12"]["inputs"]["latent_image"] = ["16", 0]
+
+    return workflow, seed
+
+
+def queue_video(prompt, model='ltx', mode='t2v', resolution='480p', length=81, seed=None, negative_prompt='', start_image=None):
+    """Queue a video generation job to ComfyUI"""
+    # Free up VRAM by unloading Ollama model before video generation
+    unload_ollama_model()
+
+    try:
+        # For I2V mode, upload the start image first
+        uploaded_filename = None
+        if mode == 'i2v' and start_image:
+            import uuid
+            img_id = str(uuid.uuid4())[:8]
+
+            # Decode base64 image
+            if ',' in start_image:
+                start_image = start_image.split(',')[1]
+
+            img_bytes = base64.b64decode(start_image)
+            input_dir = os.path.join(os.path.dirname(__file__), "input")
+            os.makedirs(input_dir, exist_ok=True)
+            input_path = os.path.join(input_dir, f"video_input_{img_id}.png")
+
+            with open(input_path, 'wb') as f:
+                f.write(img_bytes)
+
+            # Upload to ComfyUI
+            boundary = '----WebKitFormBoundary' + img_id
+            body = (
+                f'--{boundary}\r\n'
+                f'Content-Disposition: form-data; name="image"; filename="video_input_{img_id}.png"\r\n'
+                f'Content-Type: image/png\r\n\r\n'
+            ).encode() + img_bytes + f'\r\n--{boundary}--\r\n'.encode()
+
+            req = urllib.request.Request(
+                f"{COMFYUI_URL}/upload/image",
+                data=body,
+                headers={'Content-Type': f'multipart/form-data; boundary={boundary}'}
+            )
+            response = urllib.request.urlopen(req, timeout=30)
+            upload_result = json.loads(response.read().decode())
+            uploaded_filename = upload_result.get('name', f"video_input_{img_id}.png")
+
+        # Select workflow based on model
+        if model == 'ltx':
+            workflow, used_seed = get_ltx_workflow(
+                prompt,
+                resolution=resolution,
+                length=length,
+                seed=seed,
+                negative_prompt=negative_prompt
+            )
+        elif model == 'hunyuan':
+            workflow, used_seed = get_hunyuan_workflow(
+                prompt,
+                mode=mode,
+                resolution=resolution,
+                length=length,
+                seed=seed,
+                negative_prompt=negative_prompt,
+                start_image=uploaded_filename
+            )
+        else:  # wan (default)
+            workflow, used_seed = get_video_workflow(
+                prompt,
+                mode=mode,
+                resolution=resolution,
+                length=length,
+                seed=seed,
+                negative_prompt=negative_prompt,
+                start_image=uploaded_filename
+            )
+
+        payload = {"prompt": workflow}
+        req = urllib.request.Request(
+            f"{COMFYUI_URL}/prompt",
+            data=json.dumps(payload).encode(),
+            headers={'Content-Type': 'application/json'}
+        )
+        response = urllib.request.urlopen(req, timeout=10)
+        result = json.loads(response.read().decode())
+        prompt_id = result.get('prompt_id')
+
+        if prompt_id:
+            progress_state[prompt_id] = {'start_time': time.time(), 'mode': 'video', 'model': model, 'resolution': resolution, 'length': length}
+            return {"prompt_id": prompt_id, "seed": used_seed}
+        return {"error": "Failed to queue video prompt"}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def wait_for_video(prompt_id):
+    """Wait for video generation to complete and return the video path"""
+    try:
+        # Video generation takes longer - wait up to 20 minutes
+        for _ in range(2400):
+            time.sleep(0.5)
+            try:
+                history_url = f"{COMFYUI_URL}/history/{prompt_id}"
+                hist_response = urllib.request.urlopen(history_url, timeout=5)
+                history = json.loads(hist_response.read().decode())
+
+                if prompt_id in history:
+                    status = history[prompt_id].get('status', {})
+                    if status.get('status_str') == 'error':
+                        return {"success": False, "error": str(status.get('messages', [['', 'Unknown error']])[0][1])}
+
+                    outputs = history[prompt_id].get('outputs', {})
+                    for node_output in outputs.values():
+                        # Check for video files (webm, mp4)
+                        if 'videos' in node_output:
+                            vid = node_output['videos'][0]
+                            subfolder = vid.get('subfolder', '')
+                            path = f"/output/{subfolder}/{vid['filename']}" if subfolder else f"/output/{vid['filename']}"
+                            return {"success": True, "video": path}
+                        # Also check for 'images' with video extension
+                        if 'images' in node_output:
+                            for item in node_output['images']:
+                                filename = item.get('filename', '')
+                                if filename.endswith(('.webm', '.mp4', '.gif')):
+                                    subfolder = item.get('subfolder', '')
+                                    path = f"/output/{subfolder}/{filename}" if subfolder else f"/output/{filename}"
+                                    return {"success": True, "video": path}
+                    # If we got here with outputs but no video, might still be processing
+                    if outputs:
+                        return {"success": False, "error": "No video in output"}
+            except:
+                pass
+        return {"success": False, "error": "Timeout waiting for video"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
 
 def edit_image(image_data, prompt, use_angles_lora=False, angle_prompt="", use_upscale_lora=False):
     # Free up VRAM by unloading Ollama model before image editing
