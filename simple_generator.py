@@ -22,8 +22,7 @@ OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "output")
 FAVORITES_FILE = os.path.join(os.path.dirname(__file__), "favorites.json")
 HISTORY_FILE = os.path.join(os.path.dirname(__file__), "prompt_history.json")
 
-# Store last used seed for regeneration
-last_seeds = {}
+# Note: Seed storage moved to client-side localStorage
 
 # Prompt history (in-memory, synced to file)
 prompt_history = []
@@ -3569,7 +3568,7 @@ HTML_PAGE = '''<!DOCTYPE html>
             const section = document.getElementById('advancedSection');
             const toggle = document.querySelector('.advanced-toggle');
             section.classList.toggle('show');
-            toggle.textContent = section.classList.contains('show') ? 'Advanced Options' : 'Advanced Options';
+            toggle.textContent = section.classList.contains('show') ? 'Hide Options ▲' : 'Advanced Options ▼';
         }
 
         function setPrompt(text) {
@@ -4329,7 +4328,7 @@ HTML_PAGE = '''<!DOCTYPE html>
             const toggle = section.previousElementSibling;
             const isVisible = section.style.display !== 'none';
             section.style.display = isVisible ? 'none' : 'block';
-            toggle.textContent = isVisible ? 'Advanced Options' : 'Advanced Options';
+            toggle.textContent = isVisible ? 'Hide Options ▲' : 'Advanced Options ▼';
         }
 
         function updateVideoEstimate() {
@@ -4875,7 +4874,7 @@ HTML_PAGE = '''<!DOCTYPE html>
             'effect': ['vintage film', 'HDR', 'bokeh', 'motion blur', 'double exposure', 'glitch'],
             'objects': ['butterflies', 'fireflies', 'birds', 'flowers', 'stars', 'lanterns', 'bubbles'],
             'particles': ['cherry blossoms', 'snow', 'leaves', 'sparkles', 'confetti', 'rain', 'petals'],
-            'color': ['blonde', 'red', 'blue', 'pink', 'silver', 'black', 'purple'],
+            'hair_color': ['blonde', 'red', 'blue', 'pink', 'silver', 'black', 'purple'],
             'accessory': ['sunglasses', 'a hat', 'earrings', 'a crown', 'glasses', 'a scarf'],
             'clothing': ['formal suit', 'casual outfit', 'elegant dress', 'leather jacket', 'traditional kimono'],
             'expression': ['smiling', 'serious', 'surprised', 'laughing', 'thoughtful', 'confident'],
