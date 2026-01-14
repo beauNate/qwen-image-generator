@@ -303,12 +303,12 @@ HTML_PAGE = '''<!DOCTYPE html>
            ============================================ */
 
         :root {
-            /* Spacing - Consistent 8px grid */
+            /* Spacing - Strict 8px grid (HIG compliant) */
             --space-1: 4px;
             --space-2: 8px;
-            --space-3: 12px;
+            --space-3: 8px;   /* Alias to space-2 for compatibility */
             --space-4: 16px;
-            --space-5: 20px;
+            --space-5: 16px;  /* Alias to space-4 for compatibility */
             --space-6: 24px;
             --space-8: 32px;
 
@@ -372,7 +372,7 @@ HTML_PAGE = '''<!DOCTYPE html>
 
             /* Animation - Unified timing */
             --ease-out: cubic-bezier(0.25, 1, 0.5, 1);
-            --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+            --ease-spring: cubic-bezier(0.25, 1, 0.5, 1);  /* Same as ease-out - no bounce in pro tools */
             --duration-fast: 150ms;
             --duration-base: 200ms;
             --duration-slow: 300ms;
@@ -393,12 +393,12 @@ HTML_PAGE = '''<!DOCTYPE html>
         body {
             font-family: var(--font-sans);
             font-size: var(--text-body);  /* 17px - Apple HIG body standard */
-            line-height: 1.47;            /* Apple's recommended line height */
+            line-height: 1.4;             /* Apple standard */
             color: var(--text-primary);
             max-width: 600px;
             margin: 0 auto;
             padding: var(--space-4);
-            background: linear-gradient(145deg, #1a1a2e 0%, #0d0d1a 50%, #1a0a2e 100%);
+            background: #1c1c1e;          /* Apple systemBackground (dark) - solid, no gradients */
             min-height: 100vh;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
@@ -410,21 +410,6 @@ HTML_PAGE = '''<!DOCTYPE html>
                 padding: var(--space-2);
                 max-width: 100%;
             }
-        }
-
-        /* Ambient background glow */
-        body::before {
-            content: '';
-            position: fixed;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(ellipse at 30% 20%, rgba(99, 102, 241, 0.12) 0%, transparent 50%),
-                        radial-gradient(ellipse at 70% 80%, rgba(168, 85, 247, 0.08) 0%, transparent 50%),
-                        radial-gradient(ellipse at 50% 50%, rgba(10, 132, 255, 0.04) 0%, transparent 70%);
-            pointer-events: none;
-            z-index: -1;
         }
 
         /* Page load animation */
@@ -537,12 +522,12 @@ HTML_PAGE = '''<!DOCTYPE html>
         .toast.warning { border-left: 3px solid var(--warning); }
         .toast.info { border-left: 3px solid var(--accent); }
         @keyframes toastIn {
-            from { opacity: 0; transform: translateX(100px); }
+            from { opacity: 0; transform: translateX(24px); }
             to { opacity: 1; transform: translateX(0); }
         }
         @keyframes toastOut {
             from { opacity: 1; transform: translateX(0); }
-            to { opacity: 0; transform: translateX(100px); }
+            to { opacity: 0; transform: translateX(24px); }
         }
 
         /* Glass Card Base */
@@ -639,8 +624,8 @@ HTML_PAGE = '''<!DOCTYPE html>
             transition: all var(--duration-base) var(--ease-out);
         }
 
-        textarea { height: 110px; resize: vertical; overflow-y: auto; }
-        textarea.textarea-short { height: 60px; }
+        textarea { height: 112px; resize: vertical; overflow-y: auto; }
+        textarea.textarea-short { height: 64px; }
 
         textarea:focus, input:focus, select:focus {
             outline: none;
@@ -865,10 +850,8 @@ HTML_PAGE = '''<!DOCTYPE html>
 
         /* Floating AI buttons - 44px touch targets */
         .ai-float-btn {
-            width: 40px;
-            height: 40px;
-            min-width: 44px;
-            min-height: 44px;
+            width: 44px;
+            height: 44px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -934,17 +917,11 @@ HTML_PAGE = '''<!DOCTYPE html>
             overflow: hidden;
         }
 
-        @keyframes progressGlow {
-            0%, 100% { box-shadow: 0 0 8px var(--accent-glow); }
-            50% { box-shadow: 0 0 16px var(--accent-glow), 0 0 24px var(--accent-glow); }
-        }
-
         .progress-fill {
             height: 100%;
-            background: linear-gradient(90deg, var(--accent), var(--purple));
+            background: var(--accent);  /* Solid color - no gradient, no glow */
             border-radius: var(--radius-full);
             transition: width var(--duration-slow) var(--ease-out);
-            animation: progressGlow 2s ease-in-out infinite;
         }
 
         .progress-text {
