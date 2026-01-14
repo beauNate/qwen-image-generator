@@ -1296,10 +1296,11 @@ HTML_PAGE = '''<!DOCTYPE html>
         }
 
         .preset-btn.active {
-            background: rgba(10, 132, 255, 0.2);
-            border-color: var(--accent);
-            color: #fff;
-            font-weight: 500;
+            background: rgba(10, 132, 255, 0.25) !important;
+            border: 2px solid var(--accent) !important;
+            color: #fff !important;
+            font-weight: 600;
+            box-shadow: 0 0 0 1px rgba(10, 132, 255, 0.3);
         }
 
         /* History dropdown */
