@@ -835,7 +835,7 @@ HTML_PAGE = '''<!DOCTYPE html>
         }
 
         .textarea-container textarea {
-            padding-right: 140px; /* Space for AI buttons */
+            padding-right: 60px; /* Space for AI buttons column */
         }
 
         .ai-buttons {
@@ -843,7 +843,7 @@ HTML_PAGE = '''<!DOCTYPE html>
             right: var(--space-2);
             top: var(--space-2);
             display: flex;
-            flex-direction: row;
+            flex-direction: column;
             gap: var(--space-1);
         }
 
@@ -1568,7 +1568,7 @@ HTML_PAGE = '''<!DOCTYPE html>
             display: inline-flex;
             align-items: center;
             padding: var(--space-3) var(--space-4);
-            margin: var(--space-1);
+            /* margin removed - gap on parent handles spacing */
             background: rgba(255, 255, 255, 0.06);
             border: 1px solid var(--glass-border);
             border-radius: var(--radius-full);
