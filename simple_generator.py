@@ -1552,10 +1552,8 @@ HTML_PAGE = '''<!DOCTYPE html>
 
         .examples h3 {
             margin: 0 0 var(--space-3) 0;
-            font-size: var(--text-caption);
-            color: var(--text-tertiary);
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
+            font-size: var(--text-subhead);
+            color: var(--text-secondary);
             font-weight: 600;
         }
 
@@ -1673,9 +1671,9 @@ HTML_PAGE = '''<!DOCTYPE html>
         }
 
         .filter-tab {
-            padding: var(--space-3) var(--space-4);
+            padding: var(--space-2) var(--space-4);
             background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
+            border: 2px solid var(--glass-border);  /* Match preset-btn */
             border-radius: var(--radius-full);
             cursor: pointer;
             font-size: var(--text-footnote);
@@ -1689,6 +1687,7 @@ HTML_PAGE = '''<!DOCTYPE html>
 
         .filter-tab:hover {
             background: var(--glass-bg-hover);
+            border-color: var(--glass-border-hover);
             color: var(--text-primary);
         }
 
@@ -2564,10 +2563,8 @@ HTML_PAGE = '''<!DOCTYPE html>
 
         .comparison-label {
             margin-bottom: var(--space-2);
-            font-size: var(--text-caption);
-            color: var(--text-tertiary);
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
+            font-size: var(--text-footnote);
+            color: var(--text-secondary);
             font-weight: 500;
         }
 
