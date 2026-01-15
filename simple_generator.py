@@ -7431,12 +7431,14 @@ def wait_for_3d(prompt_id):
                 if prompt_id in history:
                     status = history[prompt_id].get('status', {})
                     if status.get('status_str') == 'error':
-                        messages = status.get('messages')
+                        messages = status.get('messages') or []
                         error_msg = "Unknown error"
                         if isinstance(messages, list) and messages:
                             first = messages[0]
                             if isinstance(first, (list, tuple)) and len(first) > 1:
-                                error_msg = first[1]
+                                error_msg = str(first[1])
+                            else:
+                                error_msg = str(first)
                         return {"success": False, "error": str(error_msg)}
 
                     outputs = history[prompt_id].get('outputs', {})
