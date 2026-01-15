@@ -5506,7 +5506,7 @@ Dancing to our favorite song"></textarea>
                 return;
             }
 
-            const finalPrompt = template.replace(/\{[^}]+\}/, keyword);
+            const finalPrompt = template.replace(/\\{[^}]+\\}/, keyword);
             document.getElementById('editPrompt').value = finalPrompt;
             closeEditCheatsheet();
             showToast('Template Applied', 'Prompt ready - click Apply Edit', 'success');
@@ -5540,7 +5540,7 @@ Dancing to our favorite song"></textarea>
 
             // Update preview
             if (subject) {
-                preview.textContent = template.replace(/\{subject\}/g, subject);
+                preview.textContent = template.replace(/\\{subject\\}/g, subject);
                 preview.style.color = 'var(--text-primary)';
             } else {
                 preview.textContent = template;
@@ -5576,7 +5576,7 @@ Dancing to our favorite song"></textarea>
                 return;
             }
 
-            const finalPrompt = template.replace(/\{subject\}/g, subject);
+            const finalPrompt = template.replace(/\\{subject\\}/g, subject);
             document.getElementById('prompt').value = finalPrompt;
             closeGenerateTemplates();
             showToast('Template Applied', 'Ready to generate!', 'success');
@@ -5836,7 +5836,7 @@ class RequestHandler(SimpleHTTPRequestHandler):
 
         if self.path == '/queue':
             model = data.get('model', 'qwen')
-            print(f"[DEBUG] /queue called with model={model}")
+            print(f"[DEBUG] /queue called with model={model}")  # noqa: T201
             result = queue_prompt(
                 data.get('prompt', ''),
                 data.get('mode', 'lightning'),
@@ -6128,9 +6128,9 @@ def unload_ollama_model():
             model = app_settings.get('ollama_model', 'llama3.1:8b')
             # Use subprocess to call ollama stop
             subprocess.run(['ollama', 'stop', model], capture_output=True, timeout=10)
-            print(f"Unloaded Ollama model {model} to free VRAM")
+            print(f"Unloaded Ollama model {model} to free VRAM")  # noqa: T201
         except Exception as e:
-            print(f"Could not unload Ollama: {e}")
+            print(f"Could not unload Ollama: {e}")  # noqa: T201
 
 def queue_prompt(prompt, mode='lightning', resolution=512, aspect='square', seed=None, negative_prompt='', sampler='euler', scheduler='normal', model='qwen'):
     # Free up VRAM by unloading Ollama model before image generation
@@ -7258,7 +7258,6 @@ def wait_for_audio(prompt_id):
                         # Check for audio files
                         if 'audio' in node_output:
                             audio = node_output['audio'][0]
-                            subfolder = audio.get('subfolder', '')
                             filename = audio['filename']
                             return {"success": True, "audio": filename}
                         # Also check gifs (used by some audio nodes)
@@ -7419,7 +7418,6 @@ def edit_image(image_data, prompt, use_angles_lora=False, angle_prompt="", use_u
         # Upload to ComfyUI
         with open(input_path, 'rb') as f:
             import urllib.request
-            from urllib.parse import urlencode
 
             # Create multipart form data
             boundary = '----WebKitFormBoundary' + img_id
@@ -7512,26 +7510,26 @@ def get_local_ip():
         return "localhost"
 
 def main():
-    print("=" * 50)
-    print("  🎨 Qwen Image Generator - Enhanced")
-    print("=" * 50)
-    print()
+    print("=" * 50)  # noqa: T201
+    print("  🎨 Qwen Image Generator - Enhanced")  # noqa: T201
+    print("=" * 50)  # noqa: T201
+    print()  # noqa: T201
 
     if not check_comfyui():
-        print("Starting ComfyUI backend...")
+        print("Starting ComfyUI backend...")  # noqa: T201
         if not start_comfyui():
-            print("❌ Failed to start ComfyUI. Please run it manually.")
+            print("❌ Failed to start ComfyUI. Please run it manually.")  # noqa: T201
             sys.exit(1)
 
     local_ip = get_local_ip()
-    print("✅ ComfyUI backend running")
-    print()
-    print("🌐 Access the generator:")
-    print(f"   Local:   http://localhost:8080")
-    print(f"   Network: http://{local_ip}:8080")
-    print()
-    print("Press Ctrl+C to stop")
-    print()
+    print("✅ ComfyUI backend running")  # noqa: T201
+    print()  # noqa: T201
+    print("🌐 Access the generator:")  # noqa: T201
+    print("   Local:   http://localhost:8080")  # noqa: T201
+    print(f"   Network: http://{local_ip}:8080")  # noqa: T201
+    print()  # noqa: T201
+    print("Press Ctrl+C to stop")  # noqa: T201
+    print()  # noqa: T201
 
     threading.Timer(1.5, lambda: webbrowser.open('http://localhost:8080')).start()
 
@@ -7539,7 +7537,7 @@ def main():
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\n👋 Goodbye!")
+        print("\n👋 Goodbye!")  # noqa: T201
         server.shutdown()
 
 if __name__ == "__main__":
