@@ -170,7 +170,7 @@ def queue_prompt(workflow):
         if r.status_code == 200:
             return r.json().get("prompt_id")
     except Exception as e:
-        print(f"Error queuing prompt: {e}")
+        print(f"Error queuing prompt: {e}")  # noqa: T201
     return None
 
 def wait_for_completion(prompt_id, timeout=300):
@@ -194,7 +194,7 @@ def run_benchmark(resolutions, lightning=True, runs=3):
     mode = "Lightning" if lightning else "Normal"
 
     for res_name, width, height in resolutions:
-        print(f"\n  Testing {res_name} ({mode})...")
+        print(f"\n  Testing {res_name} ({mode})...")  # noqa: T201
         times = []
 
         for run in range(runs):
@@ -205,11 +205,11 @@ def run_benchmark(resolutions, lightning=True, runs=3):
                 elapsed = wait_for_completion(prompt_id)
                 if elapsed:
                     times.append(elapsed)
-                    print(f"    Run {run+1}: {elapsed:.2f}s")
+                    print(f"    Run {run+1}: {elapsed:.2f}s")  # noqa: T201
                 else:
-                    print(f"    Run {run+1}: TIMEOUT")
+                    print(f"    Run {run+1}: TIMEOUT")  # noqa: T201
             else:
-                print(f"    Run {run+1}: FAILED to queue")
+                print(f"    Run {run+1}: FAILED to queue")  # noqa: T201
 
         if times:
             avg = sum(times) / len(times)
@@ -226,16 +226,16 @@ def run_benchmark(resolutions, lightning=True, runs=3):
 
 def print_results(results, title="Benchmark Results"):
     """Pretty print benchmark results"""
-    print(f"\n{'='*60}")
-    print(f" {title}")
-    print(f"{'='*60}")
-    print(f"{'Resolution':<12} {'Mode':<10} {'Avg':<8} {'Min':<8} {'Max':<8} {'Runs':<6}")
-    print(f"{'-'*60}")
+    print(f"\n{'='*60}")  # noqa: T201
+    print(f" {title}")  # noqa: T201
+    print(f"{'='*60}")  # noqa: T201
+    print(f"{'Resolution':<12} {'Mode':<10} {'Avg':<8} {'Min':<8} {'Max':<8} {'Runs':<6}")  # noqa: T201
+    print(f"{'-'*60}")  # noqa: T201
 
     for r in results:
-        print(f"{r['resolution']:<12} {r['mode']:<10} {r['avg_time']:.2f}s    {r['min_time']:.2f}s    {r['max_time']:.2f}s    {r['runs']}")
+        print(f"{r['resolution']:<12} {r['mode']:<10} {r['avg_time']:.2f}s    {r['min_time']:.2f}s    {r['max_time']:.2f}s    {r['runs']}")  # noqa: T201
 
-    print(f"{'='*60}")
+    print(f"{'='*60}")  # noqa: T201
 
 def save_results(results, filename=None):
     """Save results to JSON file"""
@@ -250,7 +250,7 @@ def save_results(results, filename=None):
             "results": results
         }, f, indent=2)
 
-    print(f"\nResults saved to: {filename}")
+    print(f"\nResults saved to: {filename}")  # noqa: T201
 
 def main():
     parser = argparse.ArgumentParser(description="Qwen Image Generator Benchmark")
@@ -261,21 +261,21 @@ def main():
     parser.add_argument("--save", action="store_true", help="Save results to JSON")
     args = parser.parse_args()
 
-    print("="*60)
-    print(" Qwen Image Generator Benchmark")
-    print("="*60)
+    print("="*60)  # noqa: T201
+    print(" Qwen Image Generator Benchmark")  # noqa: T201
+    print("="*60)  # noqa: T201
 
     # Check ComfyUI
-    print("\nChecking ComfyUI...")
+    print("\nChecking ComfyUI...")  # noqa: T201
     if not check_comfyui():
-        print("ERROR: ComfyUI not running at", COMFYUI_URL)
-        print("Start ComfyUI first, then run this benchmark.")
+        print("ERROR: ComfyUI not running at", COMFYUI_URL)  # noqa: T201
+        print("Start ComfyUI first, then run this benchmark.")  # noqa: T201
         return
-    print("ComfyUI is running ✓")
+    print("ComfyUI is running ✓")  # noqa: T201
 
     # Get available models
     models = get_current_model()
-    print(f"Available models: {models}")
+    print(f"Available models: {models}")  # noqa: T201
 
     # Select resolutions
     resolutions = QUICK_RESOLUTIONS if args.quick else RESOLUTIONS
@@ -285,16 +285,16 @@ def main():
 
     # Run Lightning benchmarks (default: ON)
     if not args.normal_only:
-        print("\n" + "-"*60)
-        print(" ⚡ Lightning Mode ON (4 steps, CFG=1)")
-        print("-"*60)
+        print("\n" + "-"*60)  # noqa: T201
+        print(" ⚡ Lightning Mode ON (4 steps, CFG=1)")  # noqa: T201
+        print("-"*60)  # noqa: T201
         lightning_results = run_benchmark(resolutions, lightning=True, runs=args.runs)
 
     # Run Normal benchmarks (default: ON)
     if not args.lightning_only:
-        print("\n" + "-"*60)
-        print(" 🎨 Lightning Mode OFF (30 steps, CFG=5)")
-        print("-"*60)
+        print("\n" + "-"*60)  # noqa: T201
+        print(" 🎨 Lightning Mode OFF (30 steps, CFG=5)")  # noqa: T201
+        print("-"*60)  # noqa: T201
         normal_results = run_benchmark(resolutions, lightning=False, runs=args.runs)
 
     # Print results
@@ -303,21 +303,21 @@ def main():
 
     # Print comparison if both modes tested
     if lightning_results and normal_results:
-        print("\n" + "="*60)
-        print(" ⚡ vs 🎨 Speed Comparison")
-        print("="*60)
+        print("\n" + "="*60)  # noqa: T201
+        print(" ⚡ vs 🎨 Speed Comparison")  # noqa: T201
+        print("="*60)  # noqa: T201
         for lr in lightning_results:
             for nr in normal_results:
                 if lr['resolution'] == nr['resolution']:
                     speedup = nr['avg_time'] / lr['avg_time']
-                    print(f"{lr['resolution']}: Lightning is {speedup:.1f}x faster")
-                    print(f"  Lightning: {lr['avg_time']:.2f}s | Normal: {nr['avg_time']:.2f}s")
+                    print(f"{lr['resolution']}: Lightning is {speedup:.1f}x faster")  # noqa: T201
+                    print(f"  Lightning: {lr['avg_time']:.2f}s | Normal: {nr['avg_time']:.2f}s")  # noqa: T201
 
     # Save if requested
     if args.save:
         save_results(all_results)
 
-    print("\nBenchmark complete!")
+    print("\nBenchmark complete!")  # noqa: T201
 
 if __name__ == "__main__":
     main()

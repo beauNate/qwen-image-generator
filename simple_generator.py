@@ -2600,6 +2600,8 @@ HTML_PAGE = '''<!DOCTYPE html>
             transition: box-shadow var(--duration-base) var(--ease-out);
         }
     </style>
+    <!-- Model Viewer for 3D GLB display -->
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js"></script>
 </head>
 <body>
     <!-- Toast Container -->
@@ -2612,6 +2614,8 @@ HTML_PAGE = '''<!DOCTYPE html>
         <button class="tab active" onclick="showTab('generate')">Generate</button>
         <button class="tab" onclick="showTab('edit')">Edit</button>
         <button class="tab" onclick="showTab('video')">Video</button>
+        <button class="tab" onclick="showTab('audio')">Audio</button>
+        <button class="tab" onclick="showTab('3d')">3D</button>
         <button class="tab" onclick="showTab('gallery')">Gallery</button>
         <button class="tab" onclick="showTab('settings')">Settings</button>
     </div>
@@ -3015,6 +3019,198 @@ HTML_PAGE = '''<!DOCTYPE html>
                     <strong>Wan 14B</strong> - Best quality (~5min)
                     <div class="model-file"><code>wan2.1-t2v-14b-Q4_K_M.gguf</code> (9.4GB)</div>
                     <div class="model-file"><code>wan2.1-i2v-14b-Q4_K_M.gguf</code> (11GB) - I2V</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Audio Tab -->
+    <div id="tab-audio" class="tab-content">
+        <div class="input-section">
+            <label>Tags (Style &amp; Genre)</label>
+            <div class="textarea-container">
+                <textarea id="audioTags" placeholder="electronic, upbeat, 120bpm, synth, energetic"></textarea>
+                <div class="ai-buttons">
+                    <button type="button" onclick="refineAudioPrompt('refine')" title="Refine with AI" class="ai-float-btn">AI</button>
+                    <button type="button" onclick="refineAudioPrompt('expand')" title="Expand prompt" class="ai-float-btn">+</button>
+                </div>
+            </div>
+
+            <label>Lyrics (Optional)</label>
+            <div class="option-hint">Use structure tags: [verse], [chorus], [bridge], [intro], [outro]. Prefix lines with language: [en], [zh], [ja], [ko], [es], etc.</div>
+            <textarea id="audioLyrics" rows="6" placeholder="[verse]
+Walking through the city lights
+Stars are shining bright tonight
+
+[chorus]
+This is where we belong
+Dancing to our favorite song"></textarea>
+
+            <div class="options-row-spaced">
+                <div class="option-group">
+                    <label>Duration</label>
+                    <select id="audioDuration">
+                        <option value="30">30 seconds</option>
+                        <option value="60" selected>60 seconds</option>
+                        <option value="90">90 seconds</option>
+                        <option value="120">2 minutes</option>
+                        <option value="180">3 minutes</option>
+                        <option value="240">4 minutes</option>
+                    </select>
+                </div>
+                <div class="option-group">
+                    <label>Format</label>
+                    <select id="audioFormat">
+                        <option value="flac" selected>FLAC (Lossless)</option>
+                        <option value="mp3">MP3 (320k)</option>
+                        <option value="opus">Opus (128k)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Advanced Audio Options -->
+            <div class="advanced-toggle" onclick="toggleAudioAdvanced()">Advanced Options</div>
+            <div class="advanced-section" id="audioAdvancedSection">
+                <div class="option-group" style="margin-bottom: var(--space-3);">
+                    <label>Lyrics Strength</label>
+                    <input type="range" id="audioLyricsStrength" min="0" max="2" step="0.1" value="1.0" oninput="updateLyricsStrengthDisplay()">
+                    <span id="lyricsStrengthDisplay" class="range-value">1.0</span>
+                </div>
+                <div class="option-group" style="margin-bottom: var(--space-3);">
+                    <label>Seed</label>
+                    <div class="seed-row">
+                        <button type="button" class="seed-btn" onclick="randomizeAudioSeed()">Random</button>
+                        <input type="number" id="audioSeed" placeholder="Random">
+                    </div>
+                </div>
+            </div>
+
+            <div class="btn-row">
+                <button id="audioGenerateBtn" onclick="generateAudio()">Generate Music</button>
+                <button id="audioCancelBtn" class="btn-cancel" onclick="cancelAudioGeneration()" style="display:none;">Cancel</button>
+            </div>
+
+            <!-- Audio Progress -->
+            <div id="audioStatus" style="display: none;">
+                <div id="audioStatusText"></div>
+                <div class="progress-bar">
+                    <div id="audioProgressBar" class="progress-fill" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Audio Player -->
+        <div id="audioResult" class="audio-result-container"></div>
+
+        <!-- Audio Prompt Ideas -->
+        <div class="examples">
+            <h3>Music Style Ideas</h3>
+            <div class="prompt-ideas-grid">
+                <span class="example-btn" onclick="setAudioTags('electronic, upbeat, 120bpm, synth, energetic, dance')">Electronic Dance</span>
+                <span class="example-btn" onclick="setAudioTags('acoustic, folk, gentle, guitar, peaceful, nature')">Acoustic Folk</span>
+                <span class="example-btn" onclick="setAudioTags('jazz, smooth, piano, saxophone, relaxing, lounge')">Smooth Jazz</span>
+                <span class="example-btn" onclick="setAudioTags('rock, guitar, drums, energetic, powerful, band')">Rock Band</span>
+                <span class="example-btn" onclick="setAudioTags('classical, orchestral, piano, strings, elegant, cinematic')">Classical Orchestra</span>
+                <span class="example-btn" onclick="setAudioTags('hip-hop, beats, bass, urban, rhythm, flow')">Hip-Hop Beats</span>
+            </div>
+        </div>
+
+        <!-- Audio Model Status -->
+        <div id="audioModelStatus" class="status-card">
+            <h4>Audio Generation Model</h4>
+            <p>ACE-Step 3.5B - Music generation with lyrics support</p>
+            <div class="model-list">
+                <div class="model-list-item">
+                    <strong>Model</strong>
+                    <div class="model-file"><code>ace_step_v1_3.5b.safetensors</code></div>
+                </div>
+                <div class="model-list-item">
+                    <strong>Features</strong>
+                    <div class="model-file">19 languages, lyrics with structure tags, up to 4 minutes</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3D Tab -->
+    <div id="tab-3d" class="tab-content">
+        <div class="input-section">
+            <label>Source Image</label>
+            <div class="option-hint">Upload an image to convert to 3D. Best results with objects on plain backgrounds.</div>
+            <div class="btn-row-fill">
+                <button type="button" class="btn-secondary" onclick="document.getElementById('3dImageUpload').click()">Upload Image</button>
+                <button type="button" class="btn-secondary" onclick="open3DGalleryPicker()">From Gallery</button>
+            </div>
+            <div class="upload-area" id="3dUploadArea" onclick="document.getElementById('3dImageUpload').click()">
+                <div id="3dUploadPlaceholder">Click or drag image here</div>
+                <img id="3dUploadPreview" class="upload-preview hidden">
+                <input type="file" id="3dImageUpload" accept="image/*" class="hidden" onchange="handle3DUpload(event)">
+            </div>
+
+            <div class="options-row-spaced">
+                <div class="option-group">
+                    <label>Resolution</label>
+                    <select id="3dResolution">
+                        <option value="128">128 (Fast)</option>
+                        <option value="256" selected>256 (Balanced)</option>
+                        <option value="512">512 (High Detail)</option>
+                    </select>
+                </div>
+                <div class="option-group">
+                    <label>Algorithm</label>
+                    <select id="3dAlgorithm">
+                        <option value="surface net" selected>Surface Net (Smooth)</option>
+                        <option value="basic">Basic (Fast)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Advanced 3D Options -->
+            <div class="advanced-toggle" onclick="toggle3DAdvanced()">Advanced Options</div>
+            <div class="advanced-section" id="3dAdvancedSection">
+                <div class="option-group" style="margin-bottom: var(--space-3);">
+                    <label>Mesh Threshold</label>
+                    <input type="range" id="3dThreshold" min="0.1" max="0.9" step="0.05" value="0.6" oninput="update3DThresholdDisplay()">
+                    <span id="thresholdDisplay" class="range-value">0.6</span>
+                </div>
+                <div class="option-group" style="margin-bottom: var(--space-3);">
+                    <label>Seed</label>
+                    <div class="seed-row">
+                        <button type="button" class="seed-btn" onclick="randomize3DSeed()">Random</button>
+                        <input type="number" id="3dSeed" placeholder="Random">
+                    </div>
+                </div>
+            </div>
+
+            <div class="btn-row">
+                <button id="3dGenerateBtn" onclick="generate3D()">Generate 3D Model</button>
+                <button id="3dCancelBtn" class="btn-cancel" onclick="cancel3DGeneration()" style="display:none;">Cancel</button>
+            </div>
+
+            <!-- 3D Progress -->
+            <div id="3dStatus" style="display: none;">
+                <div id="3dStatusText"></div>
+                <div class="progress-bar">
+                    <div id="3dProgressBar" class="progress-fill" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3D Model Viewer -->
+        <div id="3dResult" class="model-viewer-container"></div>
+
+        <!-- 3D Model Status -->
+        <div id="3dModelStatus" class="status-card">
+            <h4>3D Generation Model</h4>
+            <p>Hunyuan3D v2 - Image to 3D mesh conversion</p>
+            <div class="model-list">
+                <div class="model-list-item">
+                    <strong>Shape Model</strong>
+                    <div class="model-file"><code>hunyuan3d-dit-v2-0-mini.safetensors</code></div>
+                </div>
+                <div class="model-list-item">
+                    <strong>Output</strong>
+                    <div class="model-file">GLB format (viewable in browser, Blender compatible)</div>
                 </div>
             </div>
         </div>
@@ -4540,6 +4736,382 @@ HTML_PAGE = '''<!DOCTYPE html>
             document.getElementById('videoStatus').style.display = 'none';
         }
 
+        // ==========================================
+        // AUDIO GENERATION FUNCTIONS
+        // ==========================================
+        let currentAudioPromptId = null;
+        let audioUploadedImageData = null;
+
+        function setAudioTags(tags) {
+            document.getElementById('audioTags').value = tags;
+        }
+
+        function toggleAudioAdvanced() {
+            const section = document.getElementById('audioAdvancedSection');
+            const toggle = section.previousElementSibling;
+            section.classList.toggle('expanded');
+            toggle.classList.toggle('active');
+        }
+
+        function updateLyricsStrengthDisplay() {
+            const value = document.getElementById('audioLyricsStrength').value;
+            document.getElementById('lyricsStrengthDisplay').textContent = value;
+        }
+
+        function randomizeAudioSeed() {
+            document.getElementById('audioSeed').value = Math.floor(Math.random() * 999999999);
+        }
+
+        async function refineAudioPrompt(mode) {
+            const tags = document.getElementById('audioTags').value;
+            if (!tags.trim()) {
+                showToast('No Tags', 'Enter some style tags first', 'warning');
+                return;
+            }
+            try {
+                showToast('Refining...', 'Enhancing music tags', 'info');
+                const response = await fetch('/refine', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: tags, mode, type: 'audio' })
+                });
+                const result = await response.json();
+                if (result.refined) {
+                    document.getElementById('audioTags').value = result.refined;
+                    showToast('Refined!', 'Music tags enhanced', 'success');
+                }
+            } catch (e) {
+                showToast('Error', 'Could not refine tags', 'error');
+            }
+        }
+
+        async function generateAudio() {
+            const tags = document.getElementById('audioTags').value.trim();
+            if (!tags) {
+                showToast('Missing Tags', 'Please enter style/genre tags', 'warning');
+                return;
+            }
+
+            const lyrics = document.getElementById('audioLyrics').value.trim();
+            const duration = parseInt(document.getElementById('audioDuration').value);
+            const format = document.getElementById('audioFormat').value;
+            const lyricsStrength = parseFloat(document.getElementById('audioLyricsStrength').value);
+            const seed = document.getElementById('audioSeed').value || null;
+
+            const btn = document.getElementById('audioGenerateBtn');
+            const cancelBtn = document.getElementById('audioCancelBtn');
+            const status = document.getElementById('audioStatus');
+            const statusText = document.getElementById('audioStatusText');
+            const result = document.getElementById('audioResult');
+
+            btn.disabled = true;
+            cancelBtn.style.display = 'inline-flex';
+            status.style.display = 'block';
+            statusText.textContent = 'Queuing audio generation...';
+            result.innerHTML = '';
+
+            let promptId = null;
+            try {
+                const queueResponse = await fetch('/audio-queue', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        tags,
+                        lyrics,
+                        duration,
+                        format,
+                        lyrics_strength: lyricsStrength,
+                        seed
+                    })
+                });
+
+                const queueResult = await queueResponse.json();
+                if (queueResult.error) {
+                    throw new Error(queueResult.error);
+                }
+
+                promptId = queueResult.prompt_id;
+                currentAudioPromptId = promptId;
+                const usedSeed = queueResult.seed;
+                statusText.textContent = 'Generating music... (this may take 20-60 seconds)';
+
+                // Poll for progress
+                pollAudioProgress(promptId);
+
+                // Wait for completion
+                const waitResponse = await fetch('/audio-wait?prompt_id=' + promptId);
+                const waitResult = await waitResponse.json();
+
+                if (currentAudioPromptId !== promptId) {
+                    return;
+                }
+                currentAudioPromptId = null;
+
+                if (waitResult.error) {
+                    throw new Error(waitResult.error);
+                }
+
+                if (waitResult.audio) {
+                    result.innerHTML = `
+                        <div class="audio-player-card">
+                            <div class="audio-info">
+                                <span class="audio-filename">${waitResult.audio}</span>
+                                <span class="audio-seed">Seed: ${usedSeed}</span>
+                            </div>
+                            <audio controls autoplay>
+                                <source src="/output/audio/${waitResult.audio}" type="audio/${format === 'mp3' ? 'mpeg' : format}">
+                            </audio>
+                            <a href="/output/audio/${waitResult.audio}" download class="download-btn">Download</a>
+                        </div>
+                    `;
+                    showToast('Complete!', 'Music generated successfully', 'success');
+                }
+            } catch (e) {
+                showToast('Error', e.message || 'Audio generation failed', 'error');
+                statusText.textContent = 'Error: ' + e.message;
+            } finally {
+                if (promptId && currentAudioPromptId && currentAudioPromptId !== promptId) {
+                    return;
+                }
+                btn.disabled = false;
+                cancelBtn.style.display = 'none';
+                status.style.display = 'none';
+            }
+        }
+
+        async function pollAudioProgress(promptId) {
+            const progressFill = document.getElementById('audioProgressBar');
+
+            while (currentAudioPromptId === promptId) {
+                try {
+                    const response = await fetch('/progress?prompt_id=' + promptId);
+                    const data = await response.json();
+
+                    if (data.progress !== undefined) {
+                        const percent = Math.round(data.progress * 100);
+                        progressFill.style.width = percent + '%';
+                    }
+                } catch (e) {
+                    // Ignore polling errors
+                }
+                await new Promise(r => setTimeout(r, 1000));
+            }
+        }
+
+        async function cancelAudioGeneration() {
+            if (currentAudioPromptId) {
+                try {
+                    await fetch('/interrupt', { method: 'POST' });
+                    showToast('Cancelled', 'Audio generation cancelled', 'info');
+                } catch (e) {
+                    // Ignore
+                }
+            }
+            currentAudioPromptId = null;
+            document.getElementById('audioGenerateBtn').disabled = false;
+            document.getElementById('audioCancelBtn').style.display = 'none';
+            document.getElementById('audioStatus').style.display = 'none';
+        }
+
+        // ==========================================
+        // 3D GENERATION FUNCTIONS
+        // ==========================================
+        let current3DPromptId = null;
+        let uploaded3DImageData = null;
+
+        function toggle3DAdvanced() {
+            const section = document.getElementById('3dAdvancedSection');
+            const toggle = section.previousElementSibling;
+            section.classList.toggle('expanded');
+            toggle.classList.toggle('active');
+        }
+
+        function update3DThresholdDisplay() {
+            const value = document.getElementById('3dThreshold').value;
+            document.getElementById('thresholdDisplay').textContent = value;
+        }
+
+        function randomize3DSeed() {
+            document.getElementById('3dSeed').value = Math.floor(Math.random() * 999999999);
+        }
+
+        function handle3DUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                uploaded3DImageData = e.target.result;
+                const preview = document.getElementById('3dUploadPreview');
+                const placeholder = document.getElementById('3dUploadPlaceholder');
+                preview.src = e.target.result;
+                preview.classList.remove('hidden');
+                placeholder.style.display = 'none';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function open3DGalleryPicker() {
+            // Reuse gallery picker modal
+            const modal = document.getElementById('galleryPickerModal');
+            const grid = document.getElementById('galleryPickerGrid');
+            modal.classList.add('active');
+
+            fetch('/gallery').then(r => r.json()).then(images => {
+                grid.innerHTML = images.map(item => {
+                    const q = String.fromCharCode(39);
+                    return '<div class="gallery-item gallery-item-compact" onclick="select3DFromGallery(' + q + item.filename + q + ')">' +
+                        '<img src="/output/' + item.filename + '">' +
+                        '</div>';
+                }).join('');
+            });
+        }
+
+        function select3DFromGallery(filename) {
+            fetch('/output/' + filename)
+                .then(r => r.blob())
+                .then(blob => {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        uploaded3DImageData = e.target.result;
+                        const preview = document.getElementById('3dUploadPreview');
+                        const placeholder = document.getElementById('3dUploadPlaceholder');
+                        preview.src = e.target.result;
+                        preview.classList.remove('hidden');
+                        placeholder.style.display = 'none';
+                    };
+                    reader.readAsDataURL(blob);
+                });
+            closeGalleryPicker();
+        }
+
+        async function generate3D() {
+            if (!uploaded3DImageData) {
+                showToast('Missing Image', 'Please upload an image first', 'warning');
+                return;
+            }
+
+            const resolution = parseInt(document.getElementById('3dResolution').value);
+            const algorithm = document.getElementById('3dAlgorithm').value;
+            const threshold = parseFloat(document.getElementById('3dThreshold').value);
+            const seed = document.getElementById('3dSeed').value || null;
+
+            const btn = document.getElementById('3dGenerateBtn');
+            const cancelBtn = document.getElementById('3dCancelBtn');
+            const status = document.getElementById('3dStatus');
+            const statusText = document.getElementById('3dStatusText');
+            const result = document.getElementById('3dResult');
+
+            btn.disabled = true;
+            cancelBtn.style.display = 'inline-flex';
+            status.style.display = 'block';
+            statusText.textContent = 'Queuing 3D generation...';
+            result.innerHTML = '';
+
+            let promptId = null;
+            try {
+                const queueResponse = await fetch('/3d-queue', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        image: uploaded3DImageData,
+                        resolution,
+                        algorithm,
+                        threshold,
+                        seed
+                    })
+                });
+
+                const queueResult = await queueResponse.json();
+                if (queueResult.error) {
+                    throw new Error(queueResult.error);
+                }
+
+                promptId = queueResult.prompt_id;
+                current3DPromptId = promptId;
+                statusText.textContent = 'Generating 3D model... (this may take 1-3 minutes)';
+
+                // Poll for progress
+                poll3DProgress(promptId);
+
+                // Wait for completion
+                const waitResponse = await fetch('/3d-wait?prompt_id=' + promptId);
+                const waitResult = await waitResponse.json();
+
+                if (current3DPromptId !== promptId) {
+                    return;
+                }
+                current3DPromptId = null;
+
+                if (waitResult.error) {
+                    throw new Error(waitResult.error);
+                }
+
+                if (waitResult.mesh) {
+                    result.innerHTML = `
+                        <div class="model-viewer-card">
+                            <model-viewer
+                                src="/output/mesh/${waitResult.mesh}"
+                                alt="Generated 3D Model"
+                                camera-controls
+                                auto-rotate
+                                shadow-intensity="1"
+                                style="width: 100%; height: 400px; background: #1c1c1e; border-radius: var(--radius-lg);">
+                            </model-viewer>
+                            <div class="model-actions">
+                                <a href="/output/mesh/${waitResult.mesh}" download class="download-btn">Download GLB</a>
+                            </div>
+                        </div>
+                    `;
+                    showToast('Complete!', '3D model generated successfully', 'success');
+                }
+            } catch (e) {
+                showToast('Error', e.message || '3D generation failed', 'error');
+                statusText.textContent = 'Error: ' + e.message;
+            } finally {
+                if (promptId && current3DPromptId && current3DPromptId !== promptId) {
+                    return;
+                }
+                btn.disabled = false;
+                cancelBtn.style.display = 'none';
+                status.style.display = 'none';
+            }
+        }
+
+        async function poll3DProgress(promptId) {
+            const progressFill = document.getElementById('3dProgressBar');
+
+            while (current3DPromptId === promptId) {
+                try {
+                    const response = await fetch('/progress?prompt_id=' + promptId);
+                    const data = await response.json();
+
+                    if (data.progress !== undefined) {
+                        const percent = Math.round(data.progress * 100);
+                        progressFill.style.width = percent + '%';
+                    }
+                } catch (e) {
+                    // Ignore polling errors
+                }
+                await new Promise(r => setTimeout(r, 1000));
+            }
+        }
+
+        async function cancel3DGeneration() {
+            if (current3DPromptId) {
+                try {
+                    await fetch('/interrupt', { method: 'POST' });
+                    showToast('Cancelled', '3D generation cancelled', 'info');
+                } catch (e) {
+                    // Ignore
+                }
+            }
+            current3DPromptId = null;
+            document.getElementById('3dGenerateBtn').disabled = false;
+            document.getElementById('3dCancelBtn').style.display = 'none';
+            document.getElementById('3dStatus').style.display = 'none';
+        }
+
         // Gallery functions
         let compareMode = false;
         let compareSlot1 = null;
@@ -4901,12 +5473,12 @@ HTML_PAGE = '''<!DOCTYPE html>
             const quickKeywordsDiv = document.getElementById('quickKeywords');
 
             // Extract placeholder name from template
-            const placeholderMatch = template.match(/\{(\w+)\}/);
+            const placeholderMatch = template.match(/\\{(\\w+)\\}/);
             const placeholderName = placeholderMatch ? placeholderMatch[1] : '';
 
             // Update preview
             if (keyword) {
-                preview.textContent = template.replace(/\{[^}]+\}/, keyword);
+                preview.textContent = template.replace(/\\{[^}]+\\}/, keyword);
                 preview.style.color = 'var(--text-primary)';
             } else {
                 preview.textContent = template;
@@ -4934,7 +5506,7 @@ HTML_PAGE = '''<!DOCTYPE html>
                 return;
             }
 
-            const finalPrompt = template.replace(/\{[^}]+\}/, keyword);
+            const finalPrompt = template.replace(/\\{[^}]+\\}/, keyword);
             document.getElementById('editPrompt').value = finalPrompt;
             closeEditCheatsheet();
             showToast('Template Applied', 'Prompt ready - click Apply Edit', 'success');
@@ -4968,7 +5540,7 @@ HTML_PAGE = '''<!DOCTYPE html>
 
             // Update preview
             if (subject) {
-                preview.textContent = template.replace(/\{subject\}/g, subject);
+                preview.textContent = template.replace(/\\{subject\\}/g, subject);
                 preview.style.color = 'var(--text-primary)';
             } else {
                 preview.textContent = template;
@@ -5004,7 +5576,7 @@ HTML_PAGE = '''<!DOCTYPE html>
                 return;
             }
 
-            const finalPrompt = template.replace(/\{subject\}/g, subject);
+            const finalPrompt = template.replace(/\\{subject\\}/g, subject);
             document.getElementById('prompt').value = finalPrompt;
             closeGenerateTemplates();
             showToast('Template Applied', 'Ready to generate!', 'success');
@@ -5178,7 +5750,24 @@ class RequestHandler(SimpleHTTPRequestHandler):
             file_path = os.path.join(os.path.dirname(__file__), clean_path[1:])
             if os.path.exists(file_path):
                 self.send_response(200)
-                self.send_header('Content-type', 'image/png')
+                # Determine content type based on file extension
+                ext = os.path.splitext(file_path)[1].lower()
+                content_types = {
+                    '.png': 'image/png',
+                    '.jpg': 'image/jpeg',
+                    '.jpeg': 'image/jpeg',
+                    '.gif': 'image/gif',
+                    '.webp': 'image/webp',
+                    '.mp4': 'video/mp4',
+                    '.flac': 'audio/flac',
+                    '.mp3': 'audio/mpeg',
+                    '.opus': 'audio/opus',
+                    '.wav': 'audio/wav',
+                    '.glb': 'model/gltf-binary',
+                    '.gltf': 'model/gltf+json',
+                }
+                content_type = content_types.get(ext, 'application/octet-stream')
+                self.send_header('Content-type', content_type)
                 self.end_headers()
                 with open(file_path, 'rb') as f:
                     self.wfile.write(f.read())
@@ -5208,6 +5797,22 @@ class RequestHandler(SimpleHTTPRequestHandler):
             self.send_header('Content-type', 'application/json')
             self.end_headers()
             self.wfile.write(json.dumps(result).encode())
+        elif self.path.startswith('/audio-wait'):
+            query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            prompt_id = query.get('prompt_id', [''])[0]
+            result = wait_for_audio(prompt_id)
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(result).encode())
+        elif self.path.startswith('/3d-wait'):
+            query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            prompt_id = query.get('prompt_id', [''])[0]
+            result = wait_for_3d(prompt_id)
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(result).encode())
         elif self.path == '/gallery':
             images = get_gallery_images_with_meta()
             self.send_response(200)
@@ -5231,7 +5836,7 @@ class RequestHandler(SimpleHTTPRequestHandler):
 
         if self.path == '/queue':
             model = data.get('model', 'qwen')
-            print(f"[DEBUG] /queue called with model={model}")
+            print(f"[DEBUG] /queue called with model={model}")  # noqa: T201
             result = queue_prompt(
                 data.get('prompt', ''),
                 data.get('mode', 'lightning'),
@@ -5274,6 +5879,25 @@ class RequestHandler(SimpleHTTPRequestHandler):
                 data.get('seed'),
                 data.get('negative_prompt', ''),
                 data.get('start_image')
+            )
+            self.send_json(result)
+        elif self.path == '/audio-queue':
+            result = queue_audio(
+                data.get('tags', ''),
+                data.get('lyrics', ''),
+                data.get('duration', 60),
+                data.get('format', 'flac'),
+                data.get('lyrics_strength', 1.0),
+                data.get('seed')
+            )
+            self.send_json(result)
+        elif self.path == '/3d-queue':
+            result = queue_3d(
+                data.get('image', ''),
+                data.get('resolution', 256),
+                data.get('algorithm', 'surface net'),
+                data.get('threshold', 0.6),
+                data.get('seed')
             )
             self.send_json(result)
         elif self.path == '/refine':
@@ -5504,9 +6128,9 @@ def unload_ollama_model():
             model = app_settings.get('ollama_model', 'llama3.1:8b')
             # Use subprocess to call ollama stop
             subprocess.run(['ollama', 'stop', model], capture_output=True, timeout=10)
-            print(f"Unloaded Ollama model {model} to free VRAM")
+            print(f"Unloaded Ollama model {model} to free VRAM")  # noqa: T201
         except Exception as e:
-            print(f"Could not unload Ollama: {e}")
+            print(f"Could not unload Ollama: {e}")  # noqa: T201
 
 def queue_prompt(prompt, mode='lightning', resolution=512, aspect='square', seed=None, negative_prompt='', sampler='euler', scheduler='normal', model='qwen'):
     # Free up VRAM by unloading Ollama model before image generation
@@ -6228,6 +6852,217 @@ def get_hunyuan_workflow(prompt, mode='t2v', resolution='480p', length=81, seed=
     return workflow, seed
 
 
+# ==========================================
+# AUDIO GENERATION WORKFLOW (ACE-Step)
+# ==========================================
+
+def get_audio_workflow(tags, lyrics='', duration=60, lyrics_strength=1.0, seed=None, format='flac'):
+    """Generate workflow for ACE-Step audio/music generation"""
+    if seed is None:
+        seed = int(time.time() * 1000) % 999999999
+
+    # ACE-Step settings
+    steps = 100  # Standard for music generation
+    cfg = 7.0
+
+    workflow = {
+        # Load ACE-Step checkpoint (combined model)
+        "1": {
+            "class_type": "CheckpointLoaderSimple",
+            "inputs": {
+                "ckpt_name": "all_in_one/ace_step_v1_3.5b.safetensors"
+            }
+        },
+        # Text encoding for tags/style
+        "2": {
+            "class_type": "TextEncodeAceStepAudio",
+            "inputs": {
+                "clip": ["1", 1],
+                "tags": tags,
+                "lyrics": lyrics,
+                "lyrics_strength": lyrics_strength
+            }
+        },
+        # Empty audio latent
+        "3": {
+            "class_type": "EmptyAceStepLatentAudio",
+            "inputs": {
+                "seconds": float(duration),
+                "batch_size": 1
+            }
+        },
+        # KSampler
+        "4": {
+            "class_type": "KSampler",
+            "inputs": {
+                "seed": seed,
+                "steps": steps,
+                "cfg": cfg,
+                "sampler_name": "euler",
+                "scheduler": "normal",
+                "denoise": 1.0,
+                "model": ["1", 0],
+                "positive": ["2", 0],
+                "negative": ["2", 0],  # ACE uses same conditioning
+                "latent_image": ["3", 0]
+            }
+        },
+        # VAE Decode Audio
+        "5": {
+            "class_type": "VAEDecodeAudio",
+            "inputs": {
+                "samples": ["4", 0],
+                "vae": ["1", 2]
+            }
+        }
+    }
+
+    # Add save node based on format
+    if format == 'mp3':
+        workflow["6"] = {
+            "class_type": "SaveAudioMP3",
+            "inputs": {
+                "audio": ["5", 0],
+                "filename_prefix": "audio/ace_music",
+                "quality": "320k"
+            }
+        }
+    elif format == 'opus':
+        workflow["6"] = {
+            "class_type": "SaveAudioOpus",
+            "inputs": {
+                "audio": ["5", 0],
+                "filename_prefix": "audio/ace_music",
+                "quality": "128k"
+            }
+        }
+    else:  # flac (default)
+        workflow["6"] = {
+            "class_type": "SaveAudio",
+            "inputs": {
+                "audio": ["5", 0],
+                "filename_prefix": "audio/ace_music"
+            }
+        }
+
+    return workflow, seed
+
+
+# ==========================================
+# 3D GENERATION WORKFLOW (Hunyuan3D v2)
+# ==========================================
+
+def get_3d_workflow(image_path, resolution=256, algorithm='surface net', threshold=0.6, seed=None):
+    """Generate workflow for Hunyuan3D v2 image-to-3D generation"""
+    if seed is None:
+        seed = int(time.time() * 1000) % 999999999
+
+    # Hunyuan3D settings
+    steps = 50
+    cfg = 7.5
+
+    workflow = {
+        # Load source image
+        "1": {
+            "class_type": "LoadImage",
+            "inputs": {
+                "image": image_path
+            }
+        },
+        # Load DinoV2-giant for image conditioning (Hunyuan3D requires 1536-dim encoder)
+        "2": {
+            "class_type": "CLIPVisionLoader",
+            "inputs": {
+                "clip_name": "dinov2-giant.safetensors"
+            }
+        },
+        # Encode image with CLIP Vision
+        "3": {
+            "class_type": "CLIPVisionEncode",
+            "inputs": {
+                "clip_vision": ["2", 0],
+                "image": ["1", 0],
+                "crop": "center"
+            }
+        },
+        # Hunyuan3D conditioning
+        "4": {
+            "class_type": "Hunyuan3Dv2Conditioning",
+            "inputs": {
+                "clip_vision_output": ["3", 0]
+            }
+        },
+        # Load Hunyuan3D diffusion model
+        "5": {
+            "class_type": "UNETLoader",
+            "inputs": {
+                "unet_name": "hunyuan3d-dit-v2-0-mini.safetensors",
+                "weight_dtype": "default"
+            }
+        },
+        # Load Hunyuan3D VAE
+        "6": {
+            "class_type": "VAELoader",
+            "inputs": {
+                "vae_name": "hunyuan3d-vae-v2-0.safetensors"
+            }
+        },
+        # Empty 3D latent
+        "7": {
+            "class_type": "EmptyLatentHunyuan3Dv2",
+            "inputs": {
+                "resolution": resolution * 12,  # 3072 for 256, etc.
+                "batch_size": 1
+            }
+        },
+        # KSampler
+        "8": {
+            "class_type": "KSampler",
+            "inputs": {
+                "seed": seed,
+                "steps": steps,
+                "cfg": cfg,
+                "sampler_name": "euler",
+                "scheduler": "normal",
+                "denoise": 1.0,
+                "model": ["5", 0],
+                "positive": ["4", 0],
+                "negative": ["4", 1],
+                "latent_image": ["7", 0]
+            }
+        },
+        # VAE Decode to voxels
+        "9": {
+            "class_type": "VAEDecodeHunyuan3D",
+            "inputs": {
+                "samples": ["8", 0],
+                "vae": ["6", 0],
+                "num_chunks": 8000,
+                "octree_resolution": resolution
+            }
+        },
+        # Convert voxels to mesh
+        "10": {
+            "class_type": "VoxelToMesh",
+            "inputs": {
+                "voxel": ["9", 0],
+                "algorithm": algorithm,
+                "threshold": threshold
+            }
+        },
+        # Save GLB
+        "11": {
+            "class_type": "SaveGLB",
+            "inputs": {
+                "mesh": ["10", 0],
+                "filename_prefix": "mesh/hunyuan3d"
+            }
+        }
+    }
+
+    return workflow, seed
+
+
 def queue_video(prompt, model='ltx', mode='t2v', resolution='480p', length=81, seed=None, negative_prompt='', start_image=None):
     """Queue a video generation job to ComfyUI"""
     # Free up VRAM by unloading Ollama model before video generation
@@ -6359,6 +7194,196 @@ def wait_for_video(prompt_id):
         return {"success": False, "error": str(e)}
 
 
+# ==========================================
+# AUDIO QUEUE AND WAIT FUNCTIONS
+# ==========================================
+
+def queue_audio(tags, lyrics='', duration=60, format='flac', lyrics_strength=1.0, seed=None):
+    """Queue an audio generation job to ComfyUI"""
+    # Free up VRAM by unloading Ollama model before audio generation
+    unload_ollama_model()
+
+    try:
+        workflow, used_seed = get_audio_workflow(
+            tags=tags,
+            lyrics=lyrics,
+            duration=duration,
+            lyrics_strength=lyrics_strength,
+            seed=seed,
+            format=format
+        )
+
+        payload = {"prompt": workflow}
+        req = urllib.request.Request(
+            f"{COMFYUI_URL}/prompt",
+            data=json.dumps(payload).encode(),
+            headers={'Content-Type': 'application/json'}
+        )
+        response = urllib.request.urlopen(req, timeout=10)
+        result = json.loads(response.read().decode())
+        prompt_id = result.get('prompt_id')
+
+        if prompt_id:
+            progress_state[prompt_id] = {'start_time': time.time(), 'mode': 'audio', 'format': format, 'duration': duration}
+            return {"prompt_id": prompt_id, "seed": used_seed}
+        return {"error": "Failed to queue audio prompt"}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def wait_for_audio(prompt_id):
+    """Wait for audio generation to complete and return the audio path"""
+    try:
+        # Audio generation can take longer for extended durations
+        try:
+            duration = float(progress_state.get(prompt_id, {}).get('duration', 60) or 60)
+        except Exception:
+            duration = 60
+        max_wait_seconds = max(300, int(duration * 3))
+        max_iterations = int(max_wait_seconds * 2)
+        for _ in range(max_iterations):
+            time.sleep(0.5)
+            try:
+                history_url = f"{COMFYUI_URL}/history/{prompt_id}"
+                hist_response = urllib.request.urlopen(history_url, timeout=5)
+                history = json.loads(hist_response.read().decode())
+
+                if prompt_id in history:
+                    status = history[prompt_id].get('status', {})
+                    if status.get('status_str') == 'error':
+                        return {"success": False, "error": str(status.get('messages', [['', 'Unknown error']])[0][1])}
+
+                    outputs = history[prompt_id].get('outputs', {})
+                    for node_output in outputs.values():
+                        # Check for audio files
+                        if 'audio' in node_output:
+                            audio = node_output['audio'][0]
+                            filename = audio['filename']
+                            return {"success": True, "audio": filename}
+                        # Also check gifs (used by some audio nodes)
+                        if 'gifs' in node_output:
+                            audio = node_output['gifs'][0]
+                            return {"success": True, "audio": audio['filename']}
+                    if outputs:
+                        return {"success": False, "error": "No audio in output"}
+            except Exception:
+                pass
+        return {"success": False, "error": "Timeout waiting for audio"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+# ==========================================
+# 3D QUEUE AND WAIT FUNCTIONS
+# ==========================================
+
+def queue_3d(image_data, resolution=256, algorithm='surface net', threshold=0.6, seed=None):
+    """Queue a 3D generation job to ComfyUI"""
+    # Free up VRAM by unloading Ollama model before 3D generation
+    unload_ollama_model()
+
+    try:
+        if not image_data:
+            return {"error": "No image data provided"}
+        # Save uploaded image and upload to ComfyUI
+        import uuid
+        img_id = str(uuid.uuid4())[:8]
+
+        # Decode base64 image
+        if ',' in image_data:
+            image_data = image_data.split(',')[1]
+
+        try:
+            img_bytes = base64.b64decode(image_data)
+        except Exception:
+            return {"error": "Invalid image data"}
+        input_dir = os.path.join(os.path.dirname(__file__), "input")
+        os.makedirs(input_dir, exist_ok=True)
+        input_path = os.path.join(input_dir, f"3d_input_{img_id}.png")
+
+        with open(input_path, 'wb') as f:
+            f.write(img_bytes)
+
+        # Upload to ComfyUI
+        boundary = '----WebKitFormBoundary' + img_id
+        body = (
+            f'--{boundary}\r\n'
+            f'Content-Disposition: form-data; name="image"; filename="3d_input_{img_id}.png"\r\n'
+            f'Content-Type: image/png\r\n\r\n'
+        ).encode() + img_bytes + f'\r\n--{boundary}--\r\n'.encode()
+
+        req = urllib.request.Request(
+            f"{COMFYUI_URL}/upload/image",
+            data=body,
+            headers={'Content-Type': f'multipart/form-data; boundary={boundary}'}
+        )
+        response = urllib.request.urlopen(req, timeout=30)
+        upload_result = json.loads(response.read().decode())
+        if not isinstance(upload_result, dict) or not upload_result.get('name'):
+            error_msg = upload_result.get('error') if isinstance(upload_result, dict) else None
+            message = "Failed to upload image to ComfyUI"
+            if error_msg:
+                message = f"{message}: {error_msg}"
+            return {"error": message}
+        uploaded_filename = upload_result.get('name')
+
+        workflow, used_seed = get_3d_workflow(
+            image_path=uploaded_filename,
+            resolution=resolution,
+            algorithm=algorithm,
+            threshold=threshold,
+            seed=seed
+        )
+
+        payload = {"prompt": workflow}
+        req = urllib.request.Request(
+            f"{COMFYUI_URL}/prompt",
+            data=json.dumps(payload).encode(),
+            headers={'Content-Type': 'application/json'}
+        )
+        response = urllib.request.urlopen(req, timeout=10)
+        result = json.loads(response.read().decode())
+        prompt_id = result.get('prompt_id')
+
+        if prompt_id:
+            progress_state[prompt_id] = {'start_time': time.time(), 'mode': '3d', 'resolution': resolution}
+            return {"prompt_id": prompt_id, "seed": used_seed}
+        return {"error": "Failed to queue 3D prompt"}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def wait_for_3d(prompt_id):
+    """Wait for 3D generation to complete and return the mesh path"""
+    try:
+        # 3D generation can take 1-10 minutes depending on resolution
+        for _ in range(1200):  # 10 minutes max
+            time.sleep(0.5)
+            try:
+                history_url = f"{COMFYUI_URL}/history/{prompt_id}"
+                hist_response = urllib.request.urlopen(history_url, timeout=5)
+                history = json.loads(hist_response.read().decode())
+
+                if prompt_id in history:
+                    status = history[prompt_id].get('status', {})
+                    if status.get('status_str') == 'error':
+                        return {"success": False, "error": str(status.get('messages', [['', 'Unknown error']])[0][1])}
+
+                    outputs = history[prompt_id].get('outputs', {})
+                    for node_output in outputs.values():
+                        # Check for 3D mesh files
+                        if '3d' in node_output:
+                            mesh = node_output['3d'][0]
+                            return {"success": True, "mesh": mesh['filename']}
+                    if outputs:
+                        return {"success": False, "error": "No mesh in output"}
+            except Exception:
+                pass
+        return {"success": False, "error": "Timeout waiting for 3D mesh"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 def edit_image(image_data, prompt, use_angles_lora=False, angle_prompt="", use_upscale_lora=False):
     # Free up VRAM by unloading Ollama model before image editing
     unload_ollama_model()
@@ -6393,7 +7418,6 @@ def edit_image(image_data, prompt, use_angles_lora=False, angle_prompt="", use_u
         # Upload to ComfyUI
         with open(input_path, 'rb') as f:
             import urllib.request
-            from urllib.parse import urlencode
 
             # Create multipart form data
             boundary = '----WebKitFormBoundary' + img_id
@@ -6486,26 +7510,26 @@ def get_local_ip():
         return "localhost"
 
 def main():
-    print("=" * 50)
-    print("  🎨 Qwen Image Generator - Enhanced")
-    print("=" * 50)
-    print()
+    print("=" * 50)  # noqa: T201
+    print("  🎨 Qwen Image Generator - Enhanced")  # noqa: T201
+    print("=" * 50)  # noqa: T201
+    print()  # noqa: T201
 
     if not check_comfyui():
-        print("Starting ComfyUI backend...")
+        print("Starting ComfyUI backend...")  # noqa: T201
         if not start_comfyui():
-            print("❌ Failed to start ComfyUI. Please run it manually.")
+            print("❌ Failed to start ComfyUI. Please run it manually.")  # noqa: T201
             sys.exit(1)
 
     local_ip = get_local_ip()
-    print("✅ ComfyUI backend running")
-    print()
-    print("🌐 Access the generator:")
-    print(f"   Local:   http://localhost:8080")
-    print(f"   Network: http://{local_ip}:8080")
-    print()
-    print("Press Ctrl+C to stop")
-    print()
+    print("✅ ComfyUI backend running")  # noqa: T201
+    print()  # noqa: T201
+    print("🌐 Access the generator:")  # noqa: T201
+    print("   Local:   http://localhost:8080")  # noqa: T201
+    print(f"   Network: http://{local_ip}:8080")  # noqa: T201
+    print()  # noqa: T201
+    print("Press Ctrl+C to stop")  # noqa: T201
+    print()  # noqa: T201
 
     threading.Timer(1.5, lambda: webbrowser.open('http://localhost:8080')).start()
 
@@ -6513,7 +7537,7 @@ def main():
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\n👋 Goodbye!")
+        print("\n👋 Goodbye!")  # noqa: T201
         server.shutdown()
 
 if __name__ == "__main__":
