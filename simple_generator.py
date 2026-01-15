@@ -7332,14 +7332,14 @@ def wait_for_audio(prompt_id):
                             audio = node_output['audio'][0]
                             subfolder = audio.get('subfolder', '')
                             filename = audio['filename']
-                            audio_path = os.path.join(subfolder, filename) if subfolder else filename
+                            audio_path = f"{subfolder}/{filename}" if subfolder else filename
                             return {"success": True, "audio": audio_path}
                         # Also check gifs (used by some audio nodes)
                         if 'gifs' in node_output:
                             audio = node_output['gifs'][0]
                             subfolder = audio.get('subfolder', '')
                             filename = audio['filename']
-                            audio_path = os.path.join(subfolder, filename) if subfolder else filename
+                            audio_path = f"{subfolder}/{filename}" if subfolder else filename
                             return {"success": True, "audio": audio_path}
                     if outputs:
                         return {"success": False, "error": "No audio in output"}
@@ -7462,7 +7462,7 @@ def wait_for_3d(prompt_id):
                             mesh = node_output['3d'][0]
                             subfolder = mesh.get('subfolder', '')
                             filename = mesh['filename']
-                            mesh_path = os.path.join(subfolder, filename) if subfolder else filename
+                            mesh_path = f"{subfolder}/{filename}" if subfolder else filename
                             return {"success": True, "mesh": mesh_path}
                     if outputs:
                         return {"success": False, "error": "No mesh in output"}
