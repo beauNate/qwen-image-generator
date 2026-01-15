@@ -4749,7 +4749,7 @@ Dancing to our favorite song"></textarea>
         function toggleAudioAdvanced() {
             const section = document.getElementById('audioAdvancedSection');
             const toggle = section.previousElementSibling;
-            section.classList.toggle('expanded');
+            section.classList.toggle('show');
             toggle.classList.toggle('active');
         }
 
@@ -4881,12 +4881,12 @@ Dancing to our favorite song"></textarea>
                     audioEl.autoplay = true;
 
                     const sourceEl = document.createElement('source');
-                    sourceEl.src = '/output/audio/' + safeAudioFilename;
+                    sourceEl.src = '/output/' + safeAudioFilename;
                     sourceEl.type = 'audio/' + (format === 'mp3' ? 'mpeg' : format);
                     audioEl.appendChild(sourceEl);
 
                     const downloadLink = document.createElement('a');
-                    downloadLink.href = '/output/audio/' + safeAudioFilename;
+                    downloadLink.href = '/output/' + safeAudioFilename;
                     downloadLink.download = audioFilename;
                     downloadLink.className = 'download-btn';
                     downloadLink.textContent = 'Download';
@@ -4954,7 +4954,7 @@ Dancing to our favorite song"></textarea>
         function toggle3DAdvanced() {
             const section = document.getElementById('3dAdvancedSection');
             const toggle = section.previousElementSibling;
-            section.classList.toggle('expanded');
+            section.classList.toggle('show');
             toggle.classList.toggle('active');
         }
 
@@ -5091,7 +5091,7 @@ Dancing to our favorite song"></textarea>
                     card.className = 'model-viewer-card';
 
                     const viewer = document.createElement('model-viewer');
-                    viewer.src = '/output/mesh/' + safeMeshFilename;
+                    viewer.src = '/output/' + safeMeshFilename;
                     viewer.alt = 'Generated 3D Model';
                     viewer.setAttribute('camera-controls', '');
                     viewer.setAttribute('auto-rotate', '');
@@ -5101,18 +5101,18 @@ Dancing to our favorite song"></textarea>
                     viewer.style.background = '#1c1c1e';
                     viewer.style.borderRadius = 'var(--radius-lg)';
 
-                    const actionsDiv = document.createElement('div');
-                    actionsDiv.className = 'model-actions';
+                    const actions = document.createElement('div');
+                    actions.className = 'model-actions';
 
                     const downloadLink = document.createElement('a');
-                    downloadLink.href = '/output/mesh/' + safeMeshFilename;
+                    downloadLink.href = '/output/' + safeMeshFilename;
                     downloadLink.download = meshFilename;
                     downloadLink.className = 'download-btn';
                     downloadLink.textContent = 'Download GLB';
 
-                    actionsDiv.appendChild(downloadLink);
+                    actions.appendChild(downloadLink);
                     card.appendChild(viewer);
-                    card.appendChild(actionsDiv);
+                    card.appendChild(actions);
                     result.appendChild(card);
                     showToast('Complete!', '3D model generated successfully', 'success');
                 }
@@ -7319,14 +7319,14 @@ def wait_for_audio(prompt_id):
                             audio = node_output['audio'][0]
                             subfolder = audio.get('subfolder', '')
                             filename = audio['filename']
-                            audio_path = os.path.join(subfolder, filename) if subfolder else filename
+                            audio_path = f"{subfolder}/{filename}" if subfolder else filename
                             return {"success": True, "audio": audio_path}
                         # Also check gifs (used by some audio nodes)
                         if 'gifs' in node_output:
                             audio = node_output['gifs'][0]
                             subfolder = audio.get('subfolder', '')
                             filename = audio['filename']
-                            audio_path = os.path.join(subfolder, filename) if subfolder else filename
+                            audio_path = f"{subfolder}/{filename}" if subfolder else filename
                             return {"success": True, "audio": audio_path}
                     if outputs:
                         return {"success": False, "error": "No audio in output"}
@@ -7446,7 +7446,10 @@ def wait_for_3d(prompt_id):
                         # Check for 3D mesh files
                         if '3d' in node_output:
                             mesh = node_output['3d'][0]
-                            return {"success": True, "mesh": mesh['filename']}
+                            subfolder = mesh.get('subfolder', '')
+                            filename = mesh['filename']
+                            mesh_path = f"{subfolder}/{filename}" if subfolder else filename
+                            return {"success": True, "mesh": mesh_path}
                     if outputs:
                         return {"success": False, "error": "No mesh in output"}
             except Exception:
