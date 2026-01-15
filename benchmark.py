@@ -303,9 +303,9 @@ def main():
 
     # Print comparison if both modes tested
     if lightning_results and normal_results:
-    print("\n" + "="*60)  # noqa: T201
-    print(" ⚡ vs 🎨 Speed Comparison")  # noqa: T201
-    print("="*60)  # noqa: T201
+        print("\n" + "="*60)  # noqa: T201
+        print(" ⚡ vs 🎨 Speed Comparison")  # noqa: T201
+        print("="*60)  # noqa: T201
         for lr in lightning_results:
             for nr in normal_results:
                 if lr['resolution'] == nr['resolution']:

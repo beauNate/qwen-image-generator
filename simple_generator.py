@@ -5473,12 +5473,12 @@ Dancing to our favorite song"></textarea>
             const quickKeywordsDiv = document.getElementById('quickKeywords');
 
             // Extract placeholder name from template
-            const placeholderMatch = template.match(/\{(\w+)\}/);
+            const placeholderMatch = template.match(/\\{(\\w+)\\}/);
             const placeholderName = placeholderMatch ? placeholderMatch[1] : '';
 
             // Update preview
             if (keyword) {
-                preview.textContent = template.replace(/\{[^}]+\}/, keyword);
+                preview.textContent = template.replace(/\\{[^}]+\\}/, keyword);
                 preview.style.color = 'var(--text-primary)';
             } else {
                 preview.textContent = template;
