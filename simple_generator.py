@@ -14,6 +14,7 @@ import time
 import threading
 import webbrowser
 import base64
+import uuid
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 import subprocess
 
@@ -4740,7 +4741,6 @@ Dancing to our favorite song"></textarea>
         // AUDIO GENERATION FUNCTIONS
         // ==========================================
         let currentAudioPromptId = null;
-        let audioUploadedImageData = null;
 
         function setAudioTags(tags) {
             document.getElementById('audioTags').value = tags;
@@ -4852,18 +4852,50 @@ Dancing to our favorite song"></textarea>
                 }
 
                 if (waitResult.audio) {
-                    result.innerHTML = `
-                        <div class="audio-player-card">
-                            <div class="audio-info">
-                                <span class="audio-filename">${waitResult.audio}</span>
-                                <span class="audio-seed">Seed: ${usedSeed}</span>
-                            </div>
-                            <audio controls autoplay>
-                                <source src="/output/audio/${waitResult.audio}" type="audio/${format === 'mp3' ? 'mpeg' : format}">
-                            </audio>
-                            <a href="/output/audio/${waitResult.audio}" download class="download-btn">Download</a>
-                        </div>
-                    `;
+                    const audioFilename = String(waitResult.audio);
+                    const safeAudioFilename = encodeURIComponent(audioFilename);
+
+                    // Clear previous content
+                    result.innerHTML = '';
+
+                    // Create audio player card
+                    const card = document.createElement('div');
+                    card.className = 'audio-player-card';
+
+                    const info = document.createElement('div');
+                    info.className = 'audio-info';
+
+                    const filenameSpan = document.createElement('span');
+                    filenameSpan.className = 'audio-filename';
+                    filenameSpan.textContent = audioFilename;
+
+                    const seedSpan = document.createElement('span');
+                    seedSpan.className = 'audio-seed';
+                    seedSpan.textContent = 'Seed: ' + usedSeed;
+
+                    info.appendChild(filenameSpan);
+                    info.appendChild(seedSpan);
+
+                    const audioEl = document.createElement('audio');
+                    audioEl.controls = true;
+                    audioEl.autoplay = true;
+
+                    const sourceEl = document.createElement('source');
+                    sourceEl.src = '/output/audio/' + safeAudioFilename;
+                    sourceEl.type = 'audio/' + (format === 'mp3' ? 'mpeg' : format);
+                    audioEl.appendChild(sourceEl);
+
+                    const downloadLink = document.createElement('a');
+                    downloadLink.href = '/output/audio/' + safeAudioFilename;
+                    downloadLink.download = audioFilename;
+                    downloadLink.className = 'download-btn';
+                    downloadLink.textContent = 'Download';
+
+                    card.appendChild(info);
+                    card.appendChild(audioEl);
+                    card.appendChild(downloadLink);
+
+                    result.appendChild(card);
                     showToast('Complete!', 'Music generated successfully', 'success');
                 }
             } catch (e) {
@@ -5048,21 +5080,40 @@ Dancing to our favorite song"></textarea>
                 }
 
                 if (waitResult.mesh) {
-                    result.innerHTML = `
-                        <div class="model-viewer-card">
-                            <model-viewer
-                                src="/output/mesh/${waitResult.mesh}"
-                                alt="Generated 3D Model"
-                                camera-controls
-                                auto-rotate
-                                shadow-intensity="1"
-                                style="width: 100%; height: 400px; background: #1c1c1e; border-radius: var(--radius-lg);">
-                            </model-viewer>
-                            <div class="model-actions">
-                                <a href="/output/mesh/${waitResult.mesh}" download class="download-btn">Download GLB</a>
-                            </div>
-                        </div>
-                    `;
+                    const meshFilename = String(waitResult.mesh);
+                    const safeMeshFilename = encodeURIComponent(meshFilename);
+
+                    // Clear previous content
+                    result.innerHTML = '';
+
+                    // Create model viewer card
+                    const card = document.createElement('div');
+                    card.className = 'model-viewer-card';
+
+                    const viewer = document.createElement('model-viewer');
+                    viewer.src = '/output/mesh/' + safeMeshFilename;
+                    viewer.alt = 'Generated 3D Model';
+                    viewer.setAttribute('camera-controls', '');
+                    viewer.setAttribute('auto-rotate', '');
+                    viewer.setAttribute('shadow-intensity', '1');
+                    viewer.style.width = '100%';
+                    viewer.style.height = '400px';
+                    viewer.style.background = '#1c1c1e';
+                    viewer.style.borderRadius = 'var(--radius-lg)';
+
+                    const actionsDiv = document.createElement('div');
+                    actionsDiv.className = 'model-actions';
+
+                    const downloadLink = document.createElement('a');
+                    downloadLink.href = '/output/mesh/' + safeMeshFilename;
+                    downloadLink.download = meshFilename;
+                    downloadLink.className = 'download-btn';
+                    downloadLink.textContent = 'Download GLB';
+
+                    actionsDiv.appendChild(downloadLink);
+                    card.appendChild(viewer);
+                    card.appendChild(actionsDiv);
+                    result.appendChild(card);
                     showToast('Complete!', '3D model generated successfully', 'success');
                 }
             } catch (e) {
@@ -7251,22 +7302,36 @@ def wait_for_audio(prompt_id):
                 if prompt_id in history:
                     status = history[prompt_id].get('status', {})
                     if status.get('status_str') == 'error':
-                        return {"success": False, "error": str(status.get('messages', [['', 'Unknown error']])[0][1])}
+                        messages = status.get('messages') or []
+                        error_msg = "Unknown error"
+                        if isinstance(messages, list) and messages:
+                            first = messages[0]
+                            if isinstance(first, (list, tuple)) and len(first) > 1:
+                                error_msg = str(first[1])
+                            else:
+                                error_msg = str(first)
+                        return {"success": False, "error": error_msg}
 
                     outputs = history[prompt_id].get('outputs', {})
                     for node_output in outputs.values():
                         # Check for audio files
                         if 'audio' in node_output:
                             audio = node_output['audio'][0]
+                            subfolder = audio.get('subfolder', '')
                             filename = audio['filename']
-                            return {"success": True, "audio": filename}
+                            audio_path = os.path.join(subfolder, filename) if subfolder else filename
+                            return {"success": True, "audio": audio_path}
                         # Also check gifs (used by some audio nodes)
                         if 'gifs' in node_output:
                             audio = node_output['gifs'][0]
-                            return {"success": True, "audio": audio['filename']}
+                            subfolder = audio.get('subfolder', '')
+                            filename = audio['filename']
+                            audio_path = os.path.join(subfolder, filename) if subfolder else filename
+                            return {"success": True, "audio": audio_path}
                     if outputs:
                         return {"success": False, "error": "No audio in output"}
             except Exception:
+                # Ignore transient errors (e.g. network/JSON issues) and retry until timeout
                 pass
         return {"success": False, "error": "Timeout waiting for audio"}
     except Exception as e:
@@ -7286,7 +7351,6 @@ def queue_3d(image_data, resolution=256, algorithm='surface net', threshold=0.6,
         if not image_data:
             return {"error": "No image data provided"}
         # Save uploaded image and upload to ComfyUI
-        import uuid
         img_id = str(uuid.uuid4())[:8]
 
         # Decode base64 image
@@ -7367,7 +7431,13 @@ def wait_for_3d(prompt_id):
                 if prompt_id in history:
                     status = history[prompt_id].get('status', {})
                     if status.get('status_str') == 'error':
-                        return {"success": False, "error": str(status.get('messages', [['', 'Unknown error']])[0][1])}
+                        messages = status.get('messages')
+                        error_msg = "Unknown error"
+                        if isinstance(messages, list) and messages:
+                            first = messages[0]
+                            if isinstance(first, (list, tuple)) and len(first) > 1:
+                                error_msg = first[1]
+                        return {"success": False, "error": str(error_msg)}
 
                     outputs = history[prompt_id].get('outputs', {})
                     for node_output in outputs.values():
@@ -7378,6 +7448,7 @@ def wait_for_3d(prompt_id):
                     if outputs:
                         return {"success": False, "error": "No mesh in output"}
             except Exception:
+                # Ignore transient network/ComfyUI errors and retry until overall timeout
                 pass
         return {"success": False, "error": "Timeout waiting for 3D mesh"}
     except Exception as e:
