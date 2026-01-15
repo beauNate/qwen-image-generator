@@ -4882,11 +4882,13 @@ Dancing to our favorite song"></textarea>
 
                     const sourceEl = document.createElement('source');
                     sourceEl.src = '/output/' + safeAudioFilename;
+                    sourceEl.src = '/output/audio/' + safeAudioFilename;
                     sourceEl.type = 'audio/' + (format === 'mp3' ? 'mpeg' : format);
                     audioEl.appendChild(sourceEl);
 
                     const downloadLink = document.createElement('a');
                     downloadLink.href = '/output/' + safeAudioFilename;
+                    downloadLink.href = '/output/audio/' + safeAudioFilename;
                     downloadLink.download = audioFilename;
                     downloadLink.className = 'download-btn';
                     downloadLink.textContent = 'Download';
@@ -5092,6 +5094,7 @@ Dancing to our favorite song"></textarea>
 
                     const viewer = document.createElement('model-viewer');
                     viewer.src = '/output/' + safeMeshFilename;
+                    viewer.src = '/output/mesh/' + safeMeshFilename;
                     viewer.alt = 'Generated 3D Model';
                     viewer.setAttribute('camera-controls', '');
                     viewer.setAttribute('auto-rotate', '');
@@ -5106,6 +5109,11 @@ Dancing to our favorite song"></textarea>
 
                     const downloadLink = document.createElement('a');
                     downloadLink.href = '/output/' + safeMeshFilename;
+                    const actionsDiv = document.createElement('div');
+                    actionsDiv.className = 'model-actions';
+
+                    const downloadLink = document.createElement('a');
+                    downloadLink.href = '/output/mesh/' + safeMeshFilename;
                     downloadLink.download = meshFilename;
                     downloadLink.className = 'download-btn';
                     downloadLink.textContent = 'Download GLB';
@@ -5114,6 +5122,9 @@ Dancing to our favorite song"></textarea>
                     card.appendChild(viewer);
                     card.appendChild(actions);
 
+                    actionsDiv.appendChild(downloadLink);
+                    card.appendChild(viewer);
+                    card.appendChild(actionsDiv);
                     result.appendChild(card);
                     showToast('Complete!', '3D model generated successfully', 'success');
                 }
@@ -7304,6 +7315,7 @@ def wait_for_audio(prompt_id):
                     status = history[prompt_id].get('status', {})
                     if status.get('status_str') == 'error':
                         messages = status.get('messages')
+                        messages = status.get('messages') or []
                         error_msg = "Unknown error"
                         if isinstance(messages, list) and messages:
                             first = messages[0]
@@ -7433,6 +7445,7 @@ def wait_for_3d(prompt_id):
                     status = history[prompt_id].get('status', {})
                     if status.get('status_str') == 'error':
                         messages = status.get('messages')
+                        messages = status.get('messages') or []
                         error_msg = "Unknown error"
                         if isinstance(messages, list) and messages:
                             first = messages[0]
