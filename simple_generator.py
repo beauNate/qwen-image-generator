@@ -7439,7 +7439,7 @@ def wait_for_3d(prompt_id):
                                 error_msg = str(first[1])
                             else:
                                 error_msg = str(first)
-                        return {"success": False, "error": str(error_msg)}
+                        return {"success": False, "error": error_msg}
 
                     outputs = history[prompt_id].get('outputs', {})
                     for node_output in outputs.values():
