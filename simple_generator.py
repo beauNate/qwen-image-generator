@@ -7437,8 +7437,10 @@ def wait_for_3d(prompt_id):
                         if isinstance(messages, list) and messages:
                             first = messages[0]
                             if isinstance(first, (list, tuple)) and len(first) > 1:
-                                error_msg = first[1]
-                        return {"success": False, "error": str(error_msg)}
+                                error_msg = str(first[1])
+                            else:
+                                error_msg = str(first)
+                        return {"success": False, "error": error_msg}
 
                     outputs = history[prompt_id].get('outputs', {})
                     for node_output in outputs.values():
